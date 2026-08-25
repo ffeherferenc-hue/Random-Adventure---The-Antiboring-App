@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Turn a few simple choices into an immediate, playful micro-adventure."
+    />
+    <meta name="theme-color" content="#fff2dd" />
+    <title>Random Adventure Demo</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <div class="hero-topline">
+            <p class="eyebrow">Random Adventure</p>
+            <p class="hero-kicker">Spontaneity engine · Public MVP</p>
+          </div>
+          <h1>No plans? <span>Give us 30 seconds.</span></h1>
+          <p class="hero-lede">
+            Pick a time, a mood and a way to move. Get a small adventure you can actually start.
+          </p>
+        </div>
+        <button class="icon-button" id="regenerate" type="button" title="Roll a new adventure">
+          <span class="button-label">Roll again</span>
+          <span class="roll-mark" aria-hidden="true">↻</span>
+        </button>
+      </header>
+
+      <main class="adventure-layout">
+        <section class="quest-launcher" aria-label="Start an adventure">
+          <div class="panel-intro">
+            <p class="eyebrow">Start</p>
+            <h2>Pick three things. Leave the rest to the roll.</h2>
+          </div>
+
+          <fieldset class="choice-block">
+            <legend>How much time do you have?</legend>
+            <div class="option-grid time-grid">
+              <button class="option-button" type="button" data-duration="30">30 min</button>
+              <button class="option-button active" type="button" data-duration="60">1 hour</button>
+              <button class="option-button" type="button" data-duration="180">3 hours</button>
+              <button class="option-button" type="button" data-duration="720">All day</button>
+            </div>
+          </fieldset>
+
+          <fieldset class="choice-block">
+            <legend>Mood</legend>
+            <div class="option-grid mood-grid">
+              <button class="option-button emoji-button" type="button" data-mood="calm">
+                <span aria-hidden="true">○</span>
+                <small>reset</small>
+              </button>
+              <button class="option-button emoji-button active" type="button" data-mood="curious">
+                <span aria-hidden="true">◐</span>
+                <small>curious</small>
+              </button>
+              <button class="option-button emoji-button" type="button" data-mood="spark">
+                <span aria-hidden="true">✦</span>
+                <small>thrill</small>
+              </button>
+            </div>
+          </fieldset>
+
+          <fieldset class="choice-block">
+            <legend>Transport</legend>
+            <div class="option-grid transport-grid">
+              <button class="option-button emoji-button active" type="button" data-transport="walk">
+                <span aria-hidden="true">W</span>
+                <small>walk</small>
+              </button>
+              <button class="option-button emoji-button" type="button" data-transport="bike">
+                <span aria-hidden="true">B</span>
+                <small>bike</small>
+              </button>
+              <button class="option-button emoji-button" type="button" data-transport="car">
+                <span aria-hidden="true">C</span>
+                <small>car</small>
+              </button>
+              <button class="option-button emoji-button" type="button" data-transport="ev">
+                <span aria-hidden="true">EV</span>
+                <small>EV</small>
+              </button>
+              <button class="option-button emoji-button" type="button" data-transport="transit">
+                <span aria-hidden="true">T</span>
+                <small>transit</small>
+              </button>
+            </div>
+          </fieldset>
+
+          <details class="advanced">
+            <summary>Advanced settings</summary>
+
+            <div class="field">
+              <label for="start">Where are you?</label>
+              <select id="start">
+                <option value="gyor">Downtown Győr</option>
+                <option value="pannonhalma">Pannonhalma</option>
+                <option value="balaton">Balatonfüred</option>
+                <option value="budapest">Central Budapest</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="budget">Budget</label>
+              <select id="budget">
+                <option value="free">Minimal</option>
+                <option value="medium" selected>Comfortable</option>
+                <option value="premium">Premium</option>
+              </select>
+            </div>
+
+            <fieldset class="chips" aria-label="Priorities">
+              <legend>Priorities</legend>
+              <label><input type="checkbox" value="food" checked /> Food</label>
+              <label><input type="checkbox" value="nature" checked /> Scenery</label>
+              <label><input type="checkbox" value="hidden" checked /> Hidden gem</label>
+              <label><input type="checkbox" value="social" /> Social quest</label>
+              <label><input type="checkbox" value="culture" /> Culture</label>
+            </fieldset>
+
+            <fieldset class="mode-grid" aria-label="Adventure mode">
+              <legend>Adventure mode</legend>
+              <label><input type="radio" name="mode" value="star" checked /> Quick roll</label>
+              <label><input type="radio" name="mode" value="round" /> Round trip</label>
+              <label><input type="radio" name="mode" value="destination" /> Destination</label>
+              <label><input type="radio" name="mode" value="chaos" /> Chaos</label>
+            </fieldset>
+          </details>
+
+          <button class="primary" id="generate" type="button">
+            <span aria-hidden="true">↗</span>&nbsp; Generate an adventure
+          </button>
+        </section>
+
+        <section class="mission-board" aria-label="Mission">
+          <article class="mission-output" aria-live="polite">
+            <div class="mission-status">
+              <span id="mission-status">Ready to go</span>
+              <strong id="nudge-badge">Optional extra twist</strong>
+            </div>
+            <div class="quest-master">
+              <span>Quest Master</span>
+              <p id="quest-master-line">Today's roll is ready.</p>
+            </div>
+            <h2 id="mission-title">Roll your first adventure.</h2>
+            <ul class="mission-list" id="mission-list"></ul>
+            <section class="nudge-card" id="nudge-card" aria-label="Optional extra twist">
+              <div>
+                <span>Extra spark</span>
+                <h3 id="nudge-title">Add one small challenge.</h3>
+                <p id="nudge-detail">A little push, without points or pressure.</p>
+              </div>
+              <button class="nudge-action" id="nudge-action" type="button">I’m in</button>
+            </section>
+            <div class="mission-meta" id="mission-meta"></div>
+            <div class="actions">
+              <button class="secondary" id="copy-plan" type="button">Copy itinerary</button>
+              <button class="secondary" id="print-plan" type="button">Print</button>
+            </div>
+          </article>
+
+          <section class="adventure-strip" aria-label="Alternative missions">
+            <div class="section-heading">
+              <p class="eyebrow" id="summary-kicker">3 missions ready</p>
+              <h2 id="summary-title">Choose one, or roll again.</h2>
+            </div>
+            <div class="cards" id="cards"></div>
+          </section>
+
+          <details class="map-details" open>
+            <summary>
+              <span>Route at a glance</span>
+              <strong id="route-summary">Estimated journey</strong>
+            </summary>
+            <div class="route-overview" aria-label="Route at a glance">
+              <div class="route-heading">
+                <div>
+                  <p class="eyebrow">Journey shape</p>
+                  <h2 id="route-title">Out, explore, return.</h2>
+                </div>
+                <p>Clear timing now; turn-by-turn navigation can come later.</p>
+              </div>
+              <div class="route-layout">
+                <div class="map-band">
+                  <svg id="route-map" viewBox="0 0 100 62" role="img" aria-label="Illustrative route shape"></svg>
+                  <div class="route-legend" id="route-legend"></div>
+                  <p class="map-caption">Illustrative route shape — not live navigation.</p>
+                </div>
+                <ol class="route-timeline" id="route-timeline"></ol>
+              </div>
+            </div>
+          </details>
+
+          <section class="partner-tip" aria-label="Optional partner suggestion">
+            <div class="partner-copy">
+              <p class="eyebrow">Useful on this route · Partner</p>
+              <h2 id="partner-title">Only when it genuinely helps.</h2>
+              <p id="partner-copy">A contextual option can appear here without interrupting the adventure.</p>
+              <p class="partner-why" id="partner-why"></p>
+            </div>
+            <div class="partner-action-wrap">
+              <button class="secondary partner-action" id="partner-action" type="button">See route-fit options</button>
+              <p class="partner-feedback" id="partner-feedback">The adventure works perfectly without it.</p>
+            </div>
+            <p class="partner-disclosure">
+              Affiliate disclosure: a live partner link may earn Random Adventure a commission. It does not affect which adventure is ranked first.
+            </p>
+          </section>
+        </section>
+      </main>
+
+      <footer class="demo-note">
+        Illustrative product demo. Destinations, availability and travel estimates use sample data,
+        not live guidance.
+      </footer>
+    </div>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
