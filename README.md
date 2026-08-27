@@ -1,6 +1,6 @@
 # Random Adventure — public MVP
 
-Random Adventure is an anti-boredom quest generator that turns a few simple choices into an immediate, playable micro-adventure.
+Random Adventure turns the time you have into something worth doing. Whether it is a lunch break in an unfamiliar city, an unexpected gap between meetings, a necessary EV charging stop, a few free hours, or an entire trip, it uses your location, available time, preferences and constraints to find relevant places and build an experience that fits the moment.
 
 This repository contains a static, English-language product demo. It has no build step, account system, external API, analytics, or persistent user data.
 
