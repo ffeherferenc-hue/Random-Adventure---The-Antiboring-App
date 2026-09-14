@@ -207,7 +207,7 @@ $('#reroll').addEventListener('click', () => generate({ focus: true, reroll: tru
 $('#copy-plan').addEventListener('click', copyPlan);
 $('#print-plan').addEventListener('click', () => window.print());
 try {
-  const [engine, data] = await Promise.all([import('./engine.js'), import('../data/places.js')]);
+  const [engine, data] = await Promise.all([import('./engine.js?v=20260914'), import('../data/places.js?v=20260914')]);
   api = engine; places = data.places; starts = data.startPoints;
   $('#generate').disabled = false;
   generate();
