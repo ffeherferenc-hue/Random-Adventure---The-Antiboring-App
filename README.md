@@ -2,70 +2,54 @@
 
 > Any free time can become an adventure.
 
-Random Adventure is an anti-boredom quest generator. It turns a small amount of context into a short, actionable adventure that can be started immediately.
+**Public MVP · September 2026**
 
-**Current status: Public MVP v0.1**
+[Open the Hungarian adventure planner](https://ffeherferenc-hue.github.io/Random-Adventure---The-Antiboring-App/) · [Original English concept demo](https://ffeherferenc-hue.github.io/Random-Adventure---The-Antiboring-App/classic/)
 
-[Open the live MVP](https://ffeherferenc-hue.github.io/Random-Adventure---The-Antiboring-App/)
+Choose time, mood and transport. Get a small outdoor mission, choose an alternative and open its route in Google Maps. No account is needed.
 
-## The MVP promise
+## The updated planner
 
-A user chooses three things:
+- A responsive green interface, Hungarian copy, system/light/dark appearance and **Alt + Shift + V** to switch light/dark. Only the appearance preference is stored on the device.
+- Five sourced public outdoor destinations in Győr and Budapest. Coordinate references are area points, not surveyed entrances. Sources and access limitations are shown in the app.
+- Single-destination trips, two-stop circuits and a surprise mode. Every outward, inter-stop and return leg, every activity and a separate buffer count toward the total. Only plans within the estimated time budget are offered.
+- Walking, cycling, public transport, driving and EV. EV uses a driving estimate; charger suitability, availability, range and charging time are not provided.
+- Optional nature, culture and detail-discovery preferences influence ranking. Surprise mode ignores those ranking preferences.
+- Optional observation, quiet or companion tasks fit within the already allocated on-site time. Accepted tasks appear in the copied itinerary and printed mission.
+- Google Maps URLs open actual public coordinates without an API key. The complete circuit and individual legs are available. Public transport opens one leg at a time. Waypoint handling varies by Google product.
+- A clearly labelled partner concept remains available after the mission. It provides no live inventory, booking or transaction.
 
-- available time;
-- current mood;
-- preferred way to move.
+Balatonfüred and Pannonhalma currently show an explicit missing-data state. The five outdoor activities do not require a programme ticket; transport and parking costs are separate. There is no fabricated venue fallback.
 
-Random Adventure then produces a mission that fits the selected context, offers two alternatives, and gives the user enough information to start without opening another service.
+## Existing product concepts are preserved
 
-The MVP is complete when this single flow works reliably:
+The previous English application remains at **`classic/`**, retaining its 15 illustrative missions, location-independent and social quests, budget and interest controls, four adventure modes, optional twist, and EV/partner concepts. Its illustrative data must not be treated as verified destinations or live navigation. It is linked from the new planner and has a link back.
 
-`choose → generate → select → start`
+This update does not represent the whole expanded Random Adventure product roadmap. Food experiences, reservations, charging services and commercial integrations still need real data and implementation.
 
-## What the public MVP includes
+## Timing and integration boundary
 
-- a no-account, single-page experience;
-- deterministic mission generation from illustrative local data;
-- three immediately actionable mission options;
-- time, distance, transport and cost estimates;
-- a compact mission, an optional extra twist and an illustrative route shape;
-- clear disclosure that destinations, availability and travel estimates are sample data.
+Travel estimates use public coordinates, straight-line distance with a detour factor, assumed speed and per-leg overhead:
 
-## What is deliberately outside the MVP
+| Transport | Speed | Detour factor | Overhead per leg |
+| --- | ---: | ---: | ---: |
+| Walk | 4 km/h | 1.6 | 2 min |
+| Bike | 10 km/h | 1.7 | 5 min |
+| Transit | 15 km/h | 1.8 | 15 min |
+| Car / EV | 20 km/h | 1.8 | 15 min |
 
-The public MVP does not provide live location, turn-by-turn navigation, real-time availability, calendar access, bookings, payments, partner inventory or external AI generation.
+The buffer is 20% of travel plus activities, with a minimum of 10 minutes. These are editorial planning assumptions, not measured arrival times. Opening hours, closures, accessibility, terrain, timetables, traffic and parking are not checked live. The all-day choice is a maximum time budget, not a promise to fill an entire day.
 
-EV and partner references demonstrate how later data and commercial layers could fit the experience. They are not live integrations and do not affect the current MVP claim.
+The inline map is a coordinate sketch with straight connections. Google Maps opens externally after a click. This is not an embedded Maps API or live routing integration. No paid Google API is used. No location permission, analytics, external AI, account or payment is required.
 
-Future possibilities belong to the roadmap. They are not requirements for calling the present product an MVP.
+## Development and verification
 
-## Acceptance checks
+Requires Node.js with ES modules and the built-in test runner; no external package dependencies.
 
-The public MVP must:
+- `npm start` serves the app on `http://127.0.0.1:4285`.
+- `npm test` runs planning, time-boundary, route/export, input-validation and EV/interest/optional-task checks.
 
-1. respond to the selected time, mood and transport inputs;
-2. generate an actionable mission without an account or external API;
-3. keep the proposed mission within the selected time window;
-4. allow one of the alternatives to replace the primary mission;
-5. identify illustrative estimates and non-live data clearly;
-6. complete the core flow without browser errors.
-
-## Verification snapshot
-
-Verified on 8 September 2026 against the public GitHub Pages deployment:
-
-- the default flow generated a mission successfully;
-- a 30-minute, thrill, bicycle scenario produced a 25-minute mission;
-- changing to a second alternative replaced the primary mission;
-- advanced location, budget, mood and transport controls affected the generated output;
-- no browser warnings or errors appeared during the tested flows;
-- responsive layout rules are present for tablet and mobile breakpoints.
-
-## Data and implementation boundary
-
-The current version uses curated sample data and deterministic browser-side logic. It is a product-validation build: it tests whether constrained spontaneity can become an executable adventure.
-
-It does not claim live guidance, verified availability or automated transactions.
+The old English version already reported full trip time and overtime. The new planner adds explicit buffer time, complete two-stop accounting and strict fit filtering. Its timing changes should not be described as fixing a time-clamping bug in the previous public version.
 
 ## Use and licensing
 

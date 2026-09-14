@@ -1,224 +1,92 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="Turn a few simple choices into an immediate, playful micro-adventure."
-    />
-    <meta name="theme-color" content="#fff2dd" />
-    <title>Random Adventure Demo</title>
-    <link rel="stylesheet" href="./src/styles.css" />
-  </head>
-  <body>
-    <div class="app-shell">
-      <header class="hero">
-        <div class="hero-copy">
-          <div class="hero-topline">
-            <p class="eyebrow">Random Adventure</p>
-            <p class="hero-kicker">Spontaneity engine · Public MVP</p>
-          </div>
-          <h1>No plans? <span>Give us 30 seconds.</span></h1>
-          <p class="hero-lede">
-            Pick a time, a mood and a way to move. Get a small adventure you can actually start.
-          </p>
-        </div>
-        <button class="icon-button" id="regenerate" type="button" title="Roll a new adventure">
-          <span class="button-label">Roll again</span>
-          <span class="roll-mark" aria-hidden="true">↻</span>
-        </button>
-      </header>
-
-      <main class="adventure-layout">
-        <section class="quest-launcher" aria-label="Start an adventure">
-          <div class="panel-intro">
-            <p class="eyebrow">Start</p>
-            <h2>Pick three things. Leave the rest to the roll.</h2>
-          </div>
-
-          <fieldset class="choice-block">
-            <legend>How much time do you have?</legend>
-            <div class="option-grid time-grid">
-              <button class="option-button" type="button" data-duration="30">30 min</button>
-              <button class="option-button active" type="button" data-duration="60">1 hour</button>
-              <button class="option-button" type="button" data-duration="180">3 hours</button>
-              <button class="option-button" type="button" data-duration="720">All day</button>
-            </div>
-          </fieldset>
-
-          <fieldset class="choice-block">
-            <legend>Mood</legend>
-            <div class="option-grid mood-grid">
-              <button class="option-button emoji-button" type="button" data-mood="calm">
-                <span aria-hidden="true">○</span>
-                <small>reset</small>
-              </button>
-              <button class="option-button emoji-button active" type="button" data-mood="curious">
-                <span aria-hidden="true">◐</span>
-                <small>curious</small>
-              </button>
-              <button class="option-button emoji-button" type="button" data-mood="spark">
-                <span aria-hidden="true">✦</span>
-                <small>thrill</small>
-              </button>
-            </div>
-          </fieldset>
-
-          <fieldset class="choice-block">
-            <legend>Transport</legend>
-            <div class="option-grid transport-grid">
-              <button class="option-button emoji-button active" type="button" data-transport="walk">
-                <span aria-hidden="true">W</span>
-                <small>walk</small>
-              </button>
-              <button class="option-button emoji-button" type="button" data-transport="bike">
-                <span aria-hidden="true">B</span>
-                <small>bike</small>
-              </button>
-              <button class="option-button emoji-button" type="button" data-transport="car">
-                <span aria-hidden="true">C</span>
-                <small>car</small>
-              </button>
-              <button class="option-button emoji-button" type="button" data-transport="ev">
-                <span aria-hidden="true">EV</span>
-                <small>EV</small>
-              </button>
-              <button class="option-button emoji-button" type="button" data-transport="transit">
-                <span aria-hidden="true">T</span>
-                <small>transit</small>
-              </button>
-            </div>
-          </fieldset>
-
-          <details class="advanced">
-            <summary>Advanced settings</summary>
-
-            <div class="field">
-              <label for="start">Where are you?</label>
-              <select id="start">
-                <option value="gyor">Downtown Győr</option>
-                <option value="pannonhalma">Pannonhalma</option>
-                <option value="balaton">Balatonfüred</option>
-                <option value="budapest">Central Budapest</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="budget">Budget</label>
-              <select id="budget">
-                <option value="free">Minimal</option>
-                <option value="medium" selected>Comfortable</option>
-                <option value="premium">Premium</option>
-              </select>
-            </div>
-
-            <fieldset class="chips" aria-label="Priorities">
-              <legend>Priorities</legend>
-              <label><input type="checkbox" value="food" checked /> Food</label>
-              <label><input type="checkbox" value="nature" checked /> Scenery</label>
-              <label><input type="checkbox" value="hidden" checked /> Hidden gem</label>
-              <label><input type="checkbox" value="social" /> Social quest</label>
-              <label><input type="checkbox" value="culture" /> Culture</label>
-            </fieldset>
-
-            <fieldset class="mode-grid" aria-label="Adventure mode">
-              <legend>Adventure mode</legend>
-              <label><input type="radio" name="mode" value="star" checked /> Quick roll</label>
-              <label><input type="radio" name="mode" value="round" /> Round trip</label>
-              <label><input type="radio" name="mode" value="destination" /> Destination</label>
-              <label><input type="radio" name="mode" value="chaos" /> Chaos</label>
-            </fieldset>
-          </details>
-
-          <button class="primary" id="generate" type="button">
-            <span aria-hidden="true">↗</span>&nbsp; Generate an adventure
-          </button>
-        </section>
-
-        <section class="mission-board" aria-label="Mission">
-          <article class="mission-output" aria-live="polite">
-            <div class="mission-status">
-              <span id="mission-status">Ready to go</span>
-              <strong id="nudge-badge">Optional extra twist</strong>
-            </div>
-            <div class="quest-master">
-              <span>Quest Master</span>
-              <p id="quest-master-line">Today's roll is ready.</p>
-            </div>
-            <h2 id="mission-title">Roll your first adventure.</h2>
-            <ul class="mission-list" id="mission-list"></ul>
-            <section class="nudge-card" id="nudge-card" aria-label="Optional extra twist">
-              <div>
-                <span>Extra spark</span>
-                <h3 id="nudge-title">Add one small challenge.</h3>
-                <p id="nudge-detail">A little push, without points or pressure.</p>
-              </div>
-              <button class="nudge-action" id="nudge-action" type="button">I’m in</button>
-            </section>
-            <div class="mission-meta" id="mission-meta"></div>
-            <div class="actions">
-              <button class="secondary" id="copy-plan" type="button">Copy itinerary</button>
-              <button class="secondary" id="print-plan" type="button">Print</button>
+<html lang="hu" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#203f37">
+  <meta name="description" content="Kevés döntés. Egy új történet. Helyi minikalandok a szabadidődhöz igazítva.">
+  <meta name="referrer" content="no-referrer">
+  <title>Random Adventure — Az app, ami kimozdít.</title>
+  <link rel="icon" href="./assets/compass.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+<a class="skip" href="#planner">Ugrás a kalandtervezőhöz</a>
+<div class="shell">
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Random Adventure, kezdőlap"><img src="./assets/compass.svg" width="38" height="38" alt=""><span>random<span class="brand-light">adventure</span><small>THE ANTIBORING APP</small></span></a>
+    <nav aria-label="Fő navigáció"><a class="nav-active" href="#planner">Találj egy kalandot</a><a href="#about">Hogyan működik?</a></nav>
+    <div class="header-tools"><label class="theme-control"><span class="sr-only">Megjelenés</span><select id="theme-select" aria-label="Megjelenés" aria-keyshortcuts="Alt+Shift+V" title="Világos/sötét váltás: Alt + Shift + V (vödör)"><option value="system">Rendszer</option><option value="light">Világos</option><option value="dark">Sötét</option></select></label><span class="local-tag"><i></i> Public MVP</span></div>
+  </header>
+  <main>
+    <section class="intro" aria-labelledby="page-title">
+      <div><p class="eyebrow">KEVESEBB TERVEZÉS. TÖBB TÖRTÉNET.</p><h1 id="page-title">Ma merre <em>mozdulnál?</em></h1><p class="intro-text">Egy kis szabadidő. Egy jó ötlet. A többi már kaland.</p></div>
+      <div class="intro-note"><span aria-hidden="true">↗</span><p>Nem kell messzire menned,<br>hogy kiszakadj a megszokottból.</p></div>
+    </section>
+    <div class="workspace" id="planner">
+      <section class="planner panel" aria-labelledby="planner-title">
+        <div class="section-label"><span>01 / A TE KIINDULÓPONTOD</span><span aria-hidden="true">✳</span></div>
+        <h2 id="planner-title">Mire van most kedved?</h2>
+        <p class="muted small">Három választás, és indulhat a dobás.</p>
+        <form id="adventure-form">
+          <fieldset><legend>Mennyi időd van?</legend><div class="choices times">
+            <label><input type="radio" name="duration" value="30"><span>30 perc</span></label>
+            <label><input type="radio" name="duration" value="60" checked><span>1 óra</span></label>
+            <label><input type="radio" name="duration" value="180"><span>3 óra</span></label>
+            <label><input type="radio" name="duration" value="720"><span>Egész nap</span></label>
+          </div><p class="field-note">Odaúttal és visszaérkezéssel együtt.</p></fieldset>
+          <fieldset><legend>Hogy érzed magad?</legend><div class="choices moods">
+            <label><input type="radio" name="mood" value="calm"><span><b aria-hidden="true">☾</b>Kikapcsolnék</span></label>
+            <label><input type="radio" name="mood" value="curious" checked><span><b aria-hidden="true">⌕</b>Felfedeznék</span></label>
+            <label><input type="radio" name="mood" value="spark"><span><b aria-hidden="true">ϟ</b>Felpezsdülnék</span></label>
+          </div></fieldset>
+          <fieldset><legend>Mivel indulnál?</legend><div class="choices transport">
+            <label><input type="radio" name="transport" value="walk" checked><span>Séta</span></label>
+            <label><input type="radio" name="transport" value="bike"><span>Bicikli</span></label>
+            <label><input type="radio" name="transport" value="transit"><span>Közösségi</span></label>
+            <label><input type="radio" name="transport" value="car"><span>Autó</span></label>
+            <label><input type="radio" name="transport" value="ev"><span>EV</span></label>
+          </div></fieldset>
+          <div class="start-field"><label for="start">Indulás és visszaérkezés</label><select id="start" name="start">
+            <option value="gyor">Győr · Széchenyi tér</option><option value="budapest">Budapest · Hősök tere</option>
+            <option value="balaton">Balatonfüred · még nincs helylista</option><option value="pannonhalma">Pannonhalma · még nincs helylista</option>
+          </select><p class="field-note">Nyilvános mintapont. Nem a telefonod helyzete.</p></div>
+          <details class="advanced"><summary>Egy kicsit finomítanék <span aria-hidden="true">+</span></summary><label for="mode">Kaland típusa</label><select id="mode" name="mode"><option value="single">Egy célpont, oda-vissza</option><option value="round">Két megállós kör</option><option value="chaos">Lepj meg!</option></select><p class="field-note">A meglepetés is a megadott időkereten belül marad.</p><label for="interest">Mi érdekel most?</label><select id="interest" name="interest"><option value="any">Bármi jöhet</option><option value="nature">Vízpart és természet</option><option value="culture">Kultúra és építészet</option><option value="hidden">Apró, rejtett részletek</option></select><p class="field-note">Előrébb sorolja a hozzád illő helyeket. A „Lepj meg!” módban a véletlen választ.</p><p class="field-note">A helyszíni feladatok ingyenesek; az utazás és parkolás külön költség. Gasztronómiai, költségkeretes és további mintakalandok: <a href="./classic/">korábbi angol bemutató ↗</a>.</p></details>
+          <button class="primary generate" id="generate" type="submit" disabled><span aria-hidden="true">⚄</span> Jöhet a kaland <span aria-hidden="true">↗</span></button>
+          <p class="planner-foot">Nincs regisztráció. Csak egy kis kíváncsiság.</p>
+        </form>
+      </section>
+      <section class="results" aria-label="A kalandod">
+        <p id="announcement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+        <div id="empty-state" class="panel empty-state" tabindex="-1"><p class="eyebrow">EGY PILLANAT</p><h2 id="empty-title">Előkészítjük a kalandokat.</h2><p id="empty-message">Ha ez az üzenet megmarad, ellenőrizd a kapcsolatot és frissítsd az oldalt.</p><button id="recover" class="primary" type="button" hidden>Vissza a beállításokhoz</button></div>
+        <div id="plan-output" hidden>
+          <div class="result-heading"><span class="section-label">02 / A KÖVETKEZŐ KIS TÖRTÉNETED</span><button id="reroll" class="text-button" type="button">↻ Új dobás</button></div>
+          <article class="mission panel" aria-labelledby="mission-title">
+            <div class="mission-visual" id="mission-visual"><img src="./assets/adventure.svg" alt="" class="landscape"><div class="visual-top"><span class="tag" id="category"></span><span class="ticket">NYITOTT SZEMMEL<br><strong>IRÁNY KIFELÉ ↗</strong></span></div><div class="visual-caption"><span>EGY KIS KITÉRŐ</span><span id="visual-region">GYŐR</span></div></div>
+            <div class="mission-body"><div class="mission-kicker"><span class="live-dot"></span><span id="mission-kicker">A mai ötleted</span><span id="xp" class="xp"></span></div><h2 id="mission-title" tabindex="-1"></h2><p id="mission-place" class="mission-place"></p><p id="mission-intro"></p>
+              <div class="stats"><div><strong id="total"></strong><span>becsült teljes idő</span></div><div><strong id="distance"></strong><span>becsült teljes táv</span></div><div><strong>Szabadtéri</strong><span>utazási költség külön</span></div></div>
+              <p class="fit-note" id="fit-note"></p>
+              <div class="quest-heading"><h3>A mini-küldetésed</h3><span id="stop-count"></span></div><ol id="mission-steps" class="mission-steps"></ol>
+              <section class="extra-twist" aria-labelledby="extra-title"><p class="eyebrow">EGY APRÓ CSAVAR?</p><h3 id="extra-title">Csak ha kedved van hozzá.</h3><label for="extra-kind">Az extra feladat hangulata</label><select id="extra-kind"><option value="notice">Vegyél észre valami újat</option><option value="quiet">Lassíts egy kicsit</option><option value="social">Vonj be valakit</option></select><p id="extra-description"></p><button id="extra-toggle" type="button" class="secondary" aria-pressed="false">Benne vagyok</button><p class="field-note">A helyszíni program idején belül, külön kitérő nélkül. Bármikor kihagyhatod.</p></section>
+              <p id="ev-note" class="fit-note" hidden>EV-vel is indulhatsz. Ez autós útbecslés: a töltőhely, foglaltság és hatótáv nincs ellenőrizve, töltési idő nincs a tervben.</p>
+              <details class="time-details"><summary>Hogyan jön ki az idő? <span id="time-equation"></span></summary><div id="time-breakdown"></div><p class="small muted">Helyi becslés légvonalbeli távból, kerülőszorzóval, haladási tempóval és szakaszonkénti ráhagyással. A tartalék ezen felül szerepel. Forgalom, menetrend, domborzat és lezárások nélkül; nem garantált érkezési idő.</p></details>
+              <div class="mission-actions"><a id="maps-link" class="primary" target="_blank" rel="noopener noreferrer">Útvonal a Google Mapsben ↗</a><button id="copy-plan" class="secondary" type="button">Terv másolása</button><button id="print-plan" class="icon-button" type="button" aria-label="Kaland nyomtatása" title="Kaland nyomtatása">⎙</button></div>
+              <p class="field-note" id="maps-note">Külső térképen nyílik meg. Csak a mintapontok kerülnek a linkbe.</p>
+              <div id="copy-fallback" hidden><label for="copy-text">A másolás nem érhető el. Jelöld ki és másold ki a tervet:</label><textarea id="copy-text" readonly rows="7"></textarea></div>
             </div>
           </article>
-
-          <section class="adventure-strip" aria-label="Alternative missions">
-            <div class="section-heading">
-              <p class="eyebrow" id="summary-kicker">3 missions ready</p>
-              <h2 id="summary-title">Choose one, or roll again.</h2>
-            </div>
-            <div class="cards" id="cards"></div>
-          </section>
-
-          <details class="map-details" open>
-            <summary>
-              <span>Route at a glance</span>
-              <strong id="route-summary">Estimated journey</strong>
-            </summary>
-            <div class="route-overview" aria-label="Route at a glance">
-              <div class="route-heading">
-                <div>
-                  <p class="eyebrow">Journey shape</p>
-                  <h2 id="route-title">Out, explore, return.</h2>
-                </div>
-                <p>Clear timing now; turn-by-turn navigation can come later.</p>
-              </div>
-              <div class="route-layout">
-                <div class="map-band">
-                  <svg id="route-map" viewBox="0 0 100 62" role="img" aria-label="Illustrative route shape"></svg>
-                  <div class="route-legend" id="route-legend"></div>
-                  <p class="map-caption">Illustrative route shape — not live navigation.</p>
-                </div>
-                <ol class="route-timeline" id="route-timeline"></ol>
-              </div>
-            </div>
-          </details>
-
-          <section class="partner-tip" aria-label="Optional partner suggestion">
-            <div class="partner-copy">
-              <p class="eyebrow">Useful on this route · Partner</p>
-              <h2 id="partner-title">Only when it genuinely helps.</h2>
-              <p id="partner-copy">A contextual option can appear here without interrupting the adventure.</p>
-              <p class="partner-why" id="partner-why"></p>
-            </div>
-            <div class="partner-action-wrap">
-              <button class="secondary partner-action" id="partner-action" type="button">See route-fit options</button>
-              <p class="partner-feedback" id="partner-feedback">The adventure works perfectly without it.</p>
-            </div>
-            <p class="partner-disclosure">
-              Affiliate disclosure: a live partner link may earn Random Adventure a commission. It does not affect which adventure is ranked first.
-            </p>
-          </section>
-        </section>
-      </main>
-
-      <footer class="demo-note">
-        Illustrative product demo. Destinations, availability and travel estimates use sample data,
-        not live guidance.
-      </footer>
+          <section class="alternatives-section" aria-labelledby="alternatives-title"><div class="subheading"><h2 id="alternatives-title">Másfelé indulnál?</h2><span id="alternative-count" class="small muted"></span></div><div id="alternatives" class="alternatives"></div></section>
+          <details class="sources panel partner-preview"><summary>Ha jól jönne még valami az úton <span aria-hidden="true">+</span></summary><p id="partner-description"></p><p>Ez a partnerajánló működésének bemutatása. Jelenleg nincs élő partnerlista, foglalás vagy vásárlás.</p><p class="field-note">Egy későbbi, külön megjelölt partnerlink jutalékot hozhat az alkalmazásnak. A partnerbemutató most nem befolyásolja a kalandok sorrendjét.</p><a href="./classic/">További mintakalandok és partnerötletek · English demo ↗</a></details>
+          <details class="route-details panel"><summary><span>Az útvonal, egy pillantásra</span><span class="small">Vázlat · nem navigáció +</span></summary><div class="route-content"><svg id="route-map" viewBox="0 0 640 260" role="img" aria-label="Célpontok földrajzi vázlata"></svg><div><p class="small muted">Valós koordináták, egyenes összekötések. Az utcák vonalát a külső térkép mutatja.</p><ol id="route-legend"></ol></div></div><div id="leg-links" class="leg-links"></div><p class="small muted attribution">Pontadatok: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap közreműködők</a>, Wikidata és helyszíni források.</p></details>
+          <details class="sources panel"><summary>Jó tudni indulás előtt <span aria-hidden="true">+</span></summary><p>Csak szabadtéri mini-küldetéseket ajánlunk. A programidő saját becslés. Nyitvatartás, időjárás, akadálymentesség, lezárások és szabad parkolóhelyek nincsenek élőben ellenőrizve.</p><p>Az autós és közösségi utak szakaszonként 15 perc megközelítési / várakozási ráhagyást tartalmaznak. Ettől még a járat, parkoló és behajtás nem ellenőrzött. A végén gyalogos szakasz is lehet; biciklivel a helyi jelzéseket kövesd.</p><div id="source-links"></div><p class="field-note">Források ellenőrzése: 2026. szeptember 13. A koordináták helyszínpontok, nem hitelesített bejáratok.</p></details>
+        </div>
+        <noscript><p class="panel">A kalandgeneráláshoz JavaScript szükséges. A program nem kér helyadatot és nem használ külső AI-szolgáltatást.</p></noscript>
+      </section>
     </div>
-
-    <script type="module" src="./src/app.js"></script>
-  </body>
+    <section class="about" id="about" aria-labelledby="about-title"><div><p class="eyebrow">AZ APP, AMI KIMOZDÍT.</p><h2 id="about-title">A szabadidődből<br>legyen egy emlék.</h2></div><div><span class="about-number">01</span><h3>Válassz egy hangulatot.</h3><p>Az idő és a közlekedés adja a keretet. A kíváncsiság az irányt.</p></div><div><span class="about-number">02</span><h3>Kapj egy mini-küldetést.</h3><p>Valós helyszín, egy apró kihívás, átlátható időbecslés. Indulás előtt ellenőrizd az utat.</p></div><div><span class="about-number">03</span><h3>Legyen mit mesélned.</h3><p>Nézz körül. Vegyél észre valami újat. A kis kitérők is számítanak.</p></div></section>
+  </main>
+  <footer><span>randomadventure <span class="muted">/ The Antiboring App</span></span><a href="./classic/" lang="en">English · original demo ↗</a><a href="#page-title">Vissza az elejére ↑</a></footer>
+</div>
+<script type="module" src="./src/app.js"></script>
+</body>
 </html>

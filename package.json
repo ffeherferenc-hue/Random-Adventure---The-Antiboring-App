@@ -1,0 +1,7 @@
+{
+  "name": "random-adventure-modern-local",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node server.js", "test": "node --test tests/engine.test.js" },
+  "engines": { "node": ">=20" }
+}

@@ -1,656 +1,214 @@
-import { places, startPoints } from "../data/places.js";
-
-const state = {
-  adventures: [],
-  selected: 0,
-  quick: {
-    duration: 60,
-    mood: "curious",
-    transport: "walk",
-  },
+const $ = selector => document.querySelector(selector);
+const form = $('#adventure-form');
+const state = { adventures: [], selected: 0, result: null };
+let api, places, starts;
+const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+let appearance = 'system';
+function setTheme(preference) {
+  appearance = ['system', 'light', 'dark'].includes(preference) ? preference : 'system';
+  const dark = appearance === 'system' ? systemTheme.matches : appearance === 'dark';
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.documentElement.dataset.appearance = appearance;
+  $('#theme-select').value = appearance;
+}
+try { setTheme(localStorage.getItem('ra-appearance') || 'system'); } catch { setTheme('system'); }
+$('#theme-select').addEventListener('change', event => {
+  setTheme(event.target.value);
+  try { localStorage.setItem('ra-appearance', appearance); } catch { /* Optional local preference. */ }
+  announce(appearance === 'system' ? 'A megjelenés követi a rendszer beállítását.' : appearance === 'dark' ? 'Sötét megjelenés bekapcsolva.' : 'Világos megjelenés bekapcsolva.');
+});
+systemTheme.addEventListener('change', () => { if (appearance === 'system') setTheme('system'); });
+document.addEventListener('keydown', event => {
+  if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey && event.code === 'KeyV' && !event.repeat && !event.isComposing) {
+    event.preventDefault();
+    const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    setTheme(theme);
+    try { localStorage.setItem('ra-appearance', theme); } catch { /* Optional local preference. */ }
+    announce(theme === 'dark' ? 'Sötét megjelenés bekapcsolva.' : 'Világos megjelenés bekapcsolva.');
+  }
+});
+const make = (tag, text, className) => {
+  const element = document.createElement(tag);
+  if (text !== undefined && text !== null) element.textContent = text;
+  if (className) element.className = className;
+  return element;
 };
-
-const controls = {
-  start: document.querySelector("#start"),
-  budget: document.querySelector("#budget"),
-  generate: document.querySelector("#generate"),
-  regenerate: document.querySelector("#regenerate"),
-  copy: document.querySelector("#copy-plan"),
-  print: document.querySelector("#print-plan"),
-  durationButtons: [...document.querySelectorAll("[data-duration]")],
-  moodButtons: [...document.querySelectorAll("[data-mood]")],
-  transportButtons: [...document.querySelectorAll("[data-transport]")],
-};
-
-const views = {
-  cards: document.querySelector("#cards"),
-  map: document.querySelector("#route-map"),
-  summaryTitle: document.querySelector("#summary-title"),
-  summaryKicker: document.querySelector("#summary-kicker"),
-  routeSummary: document.querySelector("#route-summary"),
-  routeTitle: document.querySelector("#route-title"),
-  routeTimeline: document.querySelector("#route-timeline"),
-  routeLegend: document.querySelector("#route-legend"),
-  missionStatus: document.querySelector("#mission-status"),
-  questMasterLine: document.querySelector("#quest-master-line"),
-  missionTitle: document.querySelector("#mission-title"),
-  missionList: document.querySelector("#mission-list"),
-  missionMeta: document.querySelector("#mission-meta"),
-  nudgeBadge: document.querySelector("#nudge-badge"),
-  nudgeCard: document.querySelector("#nudge-card"),
-  nudgeTitle: document.querySelector("#nudge-title"),
-  nudgeDetail: document.querySelector("#nudge-detail"),
-  nudgeAction: document.querySelector("#nudge-action"),
-  partnerTitle: document.querySelector("#partner-title"),
-  partnerCopy: document.querySelector("#partner-copy"),
-  partnerWhy: document.querySelector("#partner-why"),
-  partnerAction: document.querySelector("#partner-action"),
-  partnerFeedback: document.querySelector("#partner-feedback"),
-};
-
-function getInputs() {
-  return {
-    start: controls.start.value,
-    duration: state.quick.duration,
-    transport: state.quick.transport,
-    budget: controls.budget.value,
-    mood: state.quick.mood,
-    mode: document.querySelector("input[name='mode']:checked").value,
-    priorities: [...document.querySelectorAll(".chips input:checked")].map(
-      (item) => item.value,
-    ),
-  };
+function announce(text) { $('#announcement').textContent = text; }
+function inputs() {
+  const values = new FormData(form);
+  return { duration: Number(values.get('duration')), mood: values.get('mood'), transport: values.get('transport'), start: values.get('start'), mode: values.get('mode'), interest: values.get('interest') };
 }
-
-function seededRandom(seed) {
-  let value = seed % 2147483647;
-  return () => {
-    value = (value * 16807) % 2147483647;
-    return (value - 1) / 2147483646;
-  };
+function externalLink(text, href, className) {
+  const safe = api.safeExternalUrl(href);
+  if (!safe) return make('span', `${text} · nincs biztonságos hivatkozás`, className);
+  const link = make('a', text, className);
+  link.href = safe; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.referrerPolicy = 'no-referrer';
+  return link;
 }
-
-function scorePlace(place, input, random) {
-  let score = 0;
-  const reasons = [];
-  const distance = place.distance[input.start] ?? 30;
-  const travelMinutes = travelTime(distance, input.transport);
-  const total = place.duration + travelMinutes * 2;
-  const fitsTime = total <= input.duration;
-
-  if (place.modes.includes(input.transport)) {
-    score += 18;
-    reasons.push(`works with ${transportLabel(input.transport)}`);
-  }
-  if (place.moods.includes(input.mood)) {
-    score += 14;
-    reasons.push(`fits a ${moodLabel(input.mood)} mood`);
-  }
-  if (fitsTime) {
-    score += 34;
-    reasons.push("fits the time available");
-  } else {
-    score -= 55;
-    reasons.push(`${total - input.duration} min over the selected time`);
-  }
-  if (input.budget === place.budget) {
-    score += 10;
-    reasons.push(`${moneyLabel(place.budget)} budget`);
-  }
-  if (input.budget === "premium" && place.budget !== "free") {
-    score += 4;
-    reasons.push("works well in premium mode");
-  }
-
-  const matchedPriorities = input.priorities.filter((tag) =>
-    place.tags.includes(tag),
-  );
-  score += matchedPriorities.length * 8;
-  if (matchedPriorities.length) {
-    reasons.push(
-      `matches: ${matchedPriorities.map(priorityLabel).join(", ")}`,
-    );
-  }
-
-  if (input.mode === "chaos") {
-    score += random() * 35;
-    reasons.push("Chaos roll");
-  }
-  if (input.mode === "round" && place.tags.includes("nature")) {
-    score += 7;
-    reasons.push("well suited to a round trip");
-  }
-  if (input.mode === "destination" && place.budget !== "free") {
-    score += 6;
-    reasons.push("strong destination");
-  }
-  if (input.mode === "star" && distance < 30) {
-    score += 8;
-    reasons.push("close by");
-  }
-
-  if (place.local && input.duration > 60) {
-    score -= 45;
-  }
-
-  score -= Math.max(0, total - input.duration) * 0.75;
-  score -= Math.max(0, distance - 80) * 0.1;
-
-  return {
-    score: score + random() * 9,
-    reasons: reasons.slice(0, 3),
-  };
+function showEmpty(status, minimum, focus = false) {
+  const content = {
+    'missing-data': ['Ehhez még kevés a helyadat.', 'Ezen a kiindulóponton vagy ehhez a közlekedéshez még nincs elegendő ellenőrzött célpont. Próbáld Győrt vagy Budapestet; két megállóhoz két külön helyre van szükség.'],
+    'no-match': ['Ez most nem fér bele.', `A legrövidebb ilyen kaland is kb. ${minimum} percet igényel a visszaúttal és tartalékkal együtt. Adj több időt, válassz egy célpontot vagy próbálj más közlekedést.`],
+    'invalid-input': ['Nézzük át a beállításokat.', 'Válassz időt, hangulatot, közlekedést és egy kiindulópontot.'],
+    'load-error': ['A kalandok most nem töltődtek be.', 'Az oldal egyik szükséges fájlja nem érhető el. Ellenőrizd az internetkapcsolatot, majd töltsd újra az oldalt.'],
+  }[status];
+  state.adventures = []; state.selected = 0;
+  $('#plan-output').hidden = true; $('#empty-state').hidden = false;
+  $('#empty-title').textContent = content[0]; $('#empty-message').textContent = content[1];
+  $('#recover').hidden = false;
+  $('#recover').textContent = status === 'load-error' ? 'Oldal újratöltése' : 'Vissza a beállításokhoz';
+  $('#recover').onclick = () => { if (status === 'load-error') location.reload(); else { $('#start').focus(); $('#planner').scrollIntoView({ block: 'start' }); } };
+  $('#copy-text').value = ''; $('#copy-fallback').hidden = true;
+  $('#maps-link').removeAttribute('href');
+  announce(content.join(' '));
+  if (focus) $('#empty-state').focus({ preventScroll: true });
 }
-
-function travelTime(distance, transport) {
-  const speeds = {
-    walk: 4.5,
-    bike: 15,
-    transit: 22,
-    car: 55,
-    ev: 55,
-  };
-  return Math.max(5, Math.ceil((distance / speeds[transport]) * 60));
-}
-
-function moneyLabel(budget) {
-  return {
-    free: "minimal",
-    medium: "comfortable",
-    premium: "premium",
-  }[budget];
-}
-
-function moodLabel(mood) {
-  return {
-    calm: "reset",
-    curious: "curious",
-    spark: "adventurous",
-  }[mood];
-}
-
-function priorityLabel(priority) {
-  return {
-    food: "food",
-    nature: "scenery",
-    hidden: "hidden gem",
-    social: "social",
-    culture: "culture",
-  }[priority];
-}
-
-function transportLabel(transport) {
-  return {
-    walk: "walking",
-    bike: "cycling",
-    car: "car",
-    ev: "EV",
-    transit: "public transit",
-  }[transport];
-}
-
-function generateAdventures() {
-  const input = getInputs();
-  const seed = Date.now() % 99991;
-  const random = seededRandom(seed);
-  const ranked = places
-    .map((place) => {
-      const result = scorePlace(place, input, random);
-      return {
-        place,
-        reasons: result.reasons,
-        score: result.score,
-      };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
-
-  state.adventures = ranked.slice(0, 3).map(({ place, reasons, score }, index) =>
-    buildAdventure(place, input, index, reasons, score),
-  );
-  state.selected = 0;
-  render();
-}
-
-function buildAdventure(place, input, index, reasons, score) {
-  const distance = place.distance[input.start] ?? 30;
-  const oneWay = travelTime(distance, input.transport);
-  const total = place.duration + oneWay * 2;
-  const fitsTime = total <= input.duration;
-  const overBy = Math.max(0, total - input.duration);
-  const questType = chooseQuestType(place, input);
-  const mission = buildMission(place, input, oneWay, questType, fitsTime, overBy);
-  const nudge = buildNudge(place, input);
-  const partnerTip = buildPartnerTip(place, input);
-  const destination = mapPoint(place, input.start);
-  const origin = startPoints[input.start];
-  const returnTurn = input.mode === "round"
-    ? {
-        name: "Different way back",
-        x: Math.max(5, Math.min(95, (origin.x + destination.x) / 2 + 8)),
-        y: Math.max(8, Math.min(57, (origin.y + destination.y) / 2 + 7)),
-      }
-    : null;
-
-  return {
-    id: `${place.id}-${index}`,
-    title: place.name,
-    place,
-    questType,
-    reasons,
-    score: Math.round(score),
-    distance,
-    total,
-    fitsTime,
-    overBy,
-    oneWay,
-    cost: moneyLabel(place.budget),
-    mission,
-    nudge,
-    partnerTip,
-    route: [
-      origin,
-      destination,
-      returnTurn,
-      origin,
-    ].filter(Boolean),
-  };
-}
-
-function mapPoint(place, start) {
-  if (!place.local) return place;
-
-  const origin = startPoints[start];
-  return {
-    ...place,
-    x: Math.max(5, Math.min(95, origin.x + place.localOffset.x)),
-    y: Math.max(8, Math.min(57, origin.y + place.localOffset.y)),
-  };
-}
-
-function buildNudge(place, input) {
-  let challenge = "Bring back one detail you would normally miss.";
-
-  if (place.id === "friend-picks-the-turn") {
-    challenge = "Send one photo back to the friend who chose your turn.";
-  } else if (place.tags.includes("social")) {
-    challenge = "Ask one person for a tiny local recommendation.";
-  } else if (place.tags.includes("nature")) {
-    challenge = "Stay phone-free for ten minutes and notice one sound.";
-  } else if (place.tags.includes("culture")) {
-    challenge = "Find one object or detail that hints at another era.";
-  } else if (input.mood === "spark") {
-    challenge = "Say yes to one harmless detour you would normally skip.";
-  }
-
-  return {
-    title: "One optional extra twist",
-    challenge,
-    accepted: false,
-  };
-}
-
-function buildPartnerTip(place, input) {
-  if (input.transport === "ev") {
-    return {
-      title: "Turn charging time into part of the outing.",
-      copy: `A live version could compare a suitable charger near ${place.name} with something worth doing while the car charges.`,
-      why: "Shown because EV mode is active and the stop fits the route.",
-      cta: "See route-fit charging options",
-      opened: false,
-    };
-  }
-
-  if (place.tags.includes("food")) {
-    return {
-      title: "A table or tasting that fits the mission.",
-      copy: `If availability matters, a live version could surface a bookable option near ${place.name} at the right moment.`,
-      why: "Shown because food is part of this adventure, not because a partner paid to rank it first.",
-      cta: "See nearby bookable options",
-      opened: false,
-    };
-  }
-
-  if (place.distance[input.start] > 40 || input.duration >= 180) {
-    return {
-      title: "Useful only if the detour becomes a longer escape.",
-      copy: `A live version could offer a relevant stay or activity near ${place.name}, after the adventure has already been chosen.`,
-      why: "Shown because this is a longer outing and an overnight option may be useful.",
-      cta: "See nearby stay options",
-      opened: false,
-    };
-  }
-
-  return {
-    title: "One useful add-on, after the adventure is chosen.",
-    copy: `A live version could suggest a vetted local stop near ${place.name} only when it saves time or adds something real.`,
-    why: "Shown because it is close to the selected route; the mission does not depend on it.",
-    cta: "See route-fit options",
-    opened: false,
-  };
-}
-
-function buildMission(place, input, oneWay, questType, fitsTime, overBy) {
-  const dayPart = getDayPart();
-  const travelStep = {
-    walk: `Walk to a place within ${oneWay} minutes that you have never really explored.`,
-    bike: `Cycle to a place within ${oneWay} minutes that you have only passed through before.`,
-    car: `Drive to a place within ${oneWay} minutes where you would not normally stop.`,
-    transit: `Change routes and deliberately look around at least one stop along the way.`,
-    ev: `Take a charging-friendly detour within ${oneWay} minutes.`,
-  }[input.transport];
-  const firstStep = place.local
-    ? `Start from ${startPoints[input.start].name} and take one unfamiliar turn within ${oneWay} minutes.`
-    : travelStep;
-
-  const modeLine = {
-    star: "Quick roll. Do not overthink it.",
-    round: "Round trip. Take a different route back.",
-    destination: "Destination mode. The place matters more than the route.",
-    chaos: "Chaos mode. Accept the first meaningful coincidence.",
-  }[input.mode];
-
-  return {
-    status: fitsTime
-      ? questType === "Chaos"
-        ? "Chaos roll ready"
-        : "Ready to go"
-      : `Longer option · ${overBy} min extra`,
-    masterLine: buildQuestMasterLine(place, input, oneWay, questType, dayPart),
-    command: place.local ? `Start: ${place.name}.` : `Go to ${place.name}.`,
-    steps: [firstStep, place.action],
-    modeLine,
-  };
-}
-
-function getDayPart() {
-  const hour = new Date().getHours();
-  if (hour < 11) return "morning";
-  if (hour < 17) return "day";
-  if (hour < 21) return "evening";
-  return "night";
-}
-
-function buildQuestMasterLine(place, input, oneWay, questType, dayPart) {
-  const timeTone = {
-    morning: "Morning launch",
-    day: "Daytime escape",
-    evening: "Evening side quest",
-    night: "Late-night micro-adventure",
-  }[dayPart];
-
-  const moodTone = {
-    calm: "no big spectacle, just one well-chosen detour",
-    curious: "today is about noticing something new",
-    spark: "today needs a little risk and a story worth telling",
-  }[input.mood];
-
-  const transportTone = {
-    walk: "On foot, the adventure stays close",
-    bike: "A bike gives you room to roam",
-    car: "A car opens up a proper escape",
-    transit: "On public transit, the stops become part of the game",
-    ev: "In EV mode, charging becomes part of the experience",
-  }[input.transport];
-
-  return `${timeTone}: ${moodTone}. ${transportTone}. You will reach ${place.name} in around ${oneWay} minutes. ${questType} quest.`;
-}
-
-function chooseQuestType(place, input) {
-  if (input.mode === "chaos" || place.category === "Chaos") return "Chaos";
-  if (place.tags.includes("social")) return "Social";
-  if (place.tags.includes("nature")) return "Outer";
-  if (input.mood === "calm") return "Inner";
-  return "Outer";
-}
-
-function render() {
-  renderCards();
-  renderSelected();
-  renderMap();
-}
-
-function renderCards() {
-  views.cards.innerHTML = "";
-
-  state.adventures.forEach((adventure, index) => {
-    const card = document.createElement("article");
-    card.className = `adventure-card ${index === state.selected ? "active" : ""}`;
-    card.innerHTML = `
-      <div class="card-top">
-        <span class="tag">${adventure.questType} Quest</span>
-        <span class="nudge-mini">${adventure.nudge.accepted ? "Twist added" : "Optional twist"}</span>
-      </div>
-      <h3>${adventure.title}</h3>
-      <p>${adventure.mission.steps[0]}</p>
-      <p class="card-nudge"><strong>Extra spark:</strong> ${adventure.nudge.challenge}</p>
-      <div class="metrics">
-        <div class="metric ${adventure.fitsTime ? "" : "time-warning"}"><strong>${adventure.total} min</strong><span>${adventure.fitsTime ? "time" : `+${adventure.overBy} min`}</span></div>
-        <div class="metric"><strong>${adventure.distance} km</strong><span>distance</span></div>
-        <div class="metric"><strong>${adventure.cost}</strong><span>cost</span></div>
-      </div>
-      <button class="select-card" type="button">Choose this</button>
-    `;
-    card.querySelector("button").addEventListener("click", () => {
-      state.selected = index;
-      render();
-    });
-    views.cards.appendChild(card);
-  });
-}
-
-function renderSelected() {
-  const selected = state.adventures[state.selected];
-  if (!selected) return;
-
-  views.summaryKicker.textContent = `${selected.questType} quest · ${selected.nudge.accepted ? "extra twist added" : "optional extra twist"}`;
-  views.summaryTitle.textContent = selected.mission.command;
-  views.missionStatus.textContent = selected.mission.status;
-  views.questMasterLine.textContent = selected.mission.masterLine;
-  views.missionTitle.textContent = selected.mission.command;
-  views.nudgeBadge.textContent = selected.nudge.accepted ? "Extra twist added" : "Optional extra twist";
-  views.missionList.innerHTML = selected.mission.steps
-    .map((item) => `<li>${item}</li>`)
-    .join("");
-  views.missionMeta.innerHTML = `
-    <span>${selected.total} min</span>
-    ${selected.fitsTime ? "" : `<span class="time-warning">Needs ${selected.overBy} extra min</span>`}
-    <span>${transportLabel(state.quick.transport)}</span>
-    <span>${selected.questType} quest</span>
-    <span>${selected.mission.modeLine}</span>
-  `;
-
-  views.nudgeTitle.textContent = selected.nudge.title;
-  views.nudgeDetail.textContent = selected.nudge.challenge;
-  views.nudgeAction.textContent = selected.nudge.accepted ? "Added ✓" : "I’m in";
-  views.nudgeAction.setAttribute("aria-pressed", String(selected.nudge.accepted));
-  views.nudgeCard.classList.toggle("accepted", selected.nudge.accepted);
-
-  renderPartnerTip(selected);
-}
-
-function renderPartnerTip(selected) {
-  views.partnerTitle.textContent = selected.partnerTip.title;
-  views.partnerCopy.textContent = selected.partnerTip.copy;
-  views.partnerWhy.textContent = selected.partnerTip.why;
-  views.partnerAction.textContent = selected.partnerTip.opened
-    ? "Demo placement ✓"
-    : selected.partnerTip.cta;
-  views.partnerFeedback.textContent = selected.partnerTip.opened
-    ? "In the live product, a clearly labelled affiliate option would open here."
-    : "The adventure works perfectly without it.";
-}
-
-function renderMap() {
-  const selected = state.adventures[state.selected];
-  if (!selected) return;
-
-  const points = selected.route;
-  const path = points.map((point) => `${point.x},${point.y}`).join(" ");
-  const roadPathA = "5,48 21,36 38,39 50,30 65,34 81,21 96,30";
-  const roadPathB = "10,20 25,24 42,18 58,22 74,16 91,18";
-  const hills = "M0 45 C15 38 27 47 42 43 C59 38 70 41 100 32 L100 62 L0 62 Z";
-
-  views.map.innerHTML = `
-    <rect class="map-bg" x="0" y="0" width="100" height="62"></rect>
-    <path class="water" d="M0 0 H100 V12 C82 17 68 10 53 15 C35 20 19 14 0 18 Z"></path>
-    <path class="park" d="${hills}"></path>
-    <polyline class="route-road secondary-road" points="${roadPathB}"></polyline>
-    <polyline class="route-road" points="${roadPathA}"></polyline>
-    <polyline class="route-line" points="${path}"></polyline>
-    ${points
-      .map(
-        (point, index) => `
-          <g class="pin ${index === 1 ? "active" : ""}" transform="translate(${point.x} ${point.y})">
-            <circle class="pin-outer" r="4.2"></circle>
-            <circle class="pin-inner" r="2.2"></circle>
-            <text class="pin-number" y="1.15">${index + 1}</text>
-          </g>
-        `,
-      )
-      .join("")}
-  `;
-
-  views.routeLegend.innerHTML = points
-    .map(
-      (point, index) => `
-        <div class="legend-item">
-          <span>${index + 1}</span>
-          <strong>${index === 0 ? "Start" : index === points.length - 1 ? "Return" : point.name}</strong>
-        </div>
-      `,
-    )
-    .join("");
-
-  const startName = startPoints[controls.start.value].name;
-  views.routeTitle.textContent = `${startName} → ${selected.title} → back`;
-  views.routeSummary.textContent = `${selected.total} min · ${transportLabel(state.quick.transport)}`;
-
-  const timeline = [
-    { step: "Start", title: startName, meta: "Leave when ready" },
-    {
-      step: "Go",
-      title: `${selected.oneWay} min by ${transportLabel(state.quick.transport)}`,
-      meta: `${selected.distance} km · illustrative estimate`,
-    },
-    {
-      step: "Explore",
-      title: selected.title,
-      meta: `${selected.place.duration} min for the mission`,
-    },
-    {
-      step: "Return",
-      title: `${selected.oneWay} min back`,
-      meta: getInputs().mode === "round" ? "Take a different way home" : "Same starting point",
-    },
-  ];
-
-  views.routeTimeline.innerHTML = timeline
-    .map(
-      (item, index) => `
-        <li>
-          <span>${index + 1}</span>
-          <div>
-            <small>${item.step}</small>
-            <strong>${item.title}</strong>
-            <p>${item.meta}</p>
-          </div>
-        </li>
-      `,
-    )
-    .join("");
-}
-
-function currentPlanText() {
-  const selected = state.adventures[state.selected];
-  if (!selected) return "";
-
-  return [
-    selected.mission.status,
-    `Quest Master: ${selected.mission.masterLine}`,
-    selected.mission.command,
-    "",
-    ...selected.mission.steps.map((item, index) => `${index + 1}. ${item}`),
-    "",
-    selected.nudge.accepted ? `Extra spark: ${selected.nudge.challenge}` : "",
-    "Random Adventure demo mission",
-  ].filter(Boolean).join("\n");
-}
-
-async function copyPlan() {
-  const text = currentPlanText();
+function generate({ focus = false, reroll = false } = {}) {
   try {
-    await navigator.clipboard.writeText(text);
-    controls.copy.textContent = "Copied";
-    window.setTimeout(() => {
-      controls.copy.textContent = "Copy itinerary";
-    }, 1400);
-  } catch {
-    window.prompt("Copy mission", text);
+    const previous = state.adventures[state.selected]?.id;
+    const result = api.planAdventures(inputs(), places, starts);
+    state.result = result;
+    if (result.status !== 'ok') { showEmpty(result.status, result.minimum, focus); return; }
+    state.adventures = result.adventures;
+    state.selected = reroll && state.adventures.length > 1 ? Math.max(0, state.adventures.findIndex(p => p.id !== previous)) : 0;
+    render();
+    if (focus) {
+      $('#mission-title').focus({ preventScroll: true });
+      $('#mission-title').scrollIntoView({ block: 'center', behavior: 'instant' });
+    }
+    const p = state.adventures[state.selected];
+    announce(`${p.title} ${p.total} perc becsült teljes idő, ${p.input.duration} perc keretben. ${state.adventures.length} választható kaland.${result.incomplete ? ' Hiányos helyadatokat kihagytunk.' : ''}${reroll && state.adventures.length === 1 ? ' Jelenleg ez az egy változat fér bele.' : ''}`);
+  } catch (error) {
+    console.error('A helyi kalandgenerálás sikertelen.', error);
+    showEmpty('load-error', null, focus);
   }
 }
-
-function setQuickValue(key, value) {
-  state.quick[key] = key === "duration" ? Number(value) : value;
-  syncButtons();
-  generateAdventures();
+function render() {
+  const p = state.adventures[state.selected];
+  $('#empty-state').hidden = true; $('#plan-output').hidden = false;
+  $('#copy-fallback').hidden = true; $('#copy-text').value = '';
+  $('#copy-plan').textContent = 'Terv másolása';
+  $('#category').textContent = p.stops[0].category;
+  const countryside = p.stops.some(stop => stop.setting === 'rural' || api.distanceKm(p.route[0], stop) > 5);
+  $('.landscape').src = countryside ? './assets/countryside.svg' : './assets/adventure.svg';
+  $('#visual-region').textContent = p.route[0].region === 'gyor' ? 'GYŐR' : 'BUDAPEST';
+  $('#mission-kicker').textContent = p.input.mode === 'chaos' ? 'Meglepetés, a kereteiden belül' : 'A következő kalandod';
+  $('#xp').textContent = 'Opcionális extra csavar';
+  $('#mission-title').textContent = p.title;
+  $('#mission-place').textContent = p.stops.map(s => s.name).join(' → ');
+  $('#mission-intro').textContent = {
+    calm: 'Nem kell sietni. Most az a feladat, hogy egy kicsit megállj, és valami másra figyelj.',
+    curious: 'Egy ismerős városban is várhat egy új részlet. A mai feladatod: találj valamit, ami mellett eddig elmentél.',
+    spark: 'Legyen egy apró fordulat a napodban. Indulj el, nézz körül, és hozz vissza egy történetet.',
+  }[p.input.mood];
+  $('#total').textContent = `~${p.total} perc`;
+  $('#distance').textContent = `~${p.distance.toLocaleString('hu-HU', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} km`;
+  $('#fit-note').textContent = `✓ A becslés szerint belefér a ${p.input.duration} perces keretbe · ${p.remaining} perc marad. Indulás előtt ellenőrizd az útvonalat.`;
+  $('#stop-count').textContent = `${p.stops.length} megálló · ${api.transportNames[p.input.transport]}`;
+  const list = $('#mission-steps'); list.replaceChildren();
+  p.stops.forEach((stop, i) => {
+    const li = make('li'), body = make('div');
+    body.append(make('strong', `${stop.name} · ${stop.duration} perc a helyszínen`), make('p', `Előtte: kb. ${p.legs[i].minutes} perc út ${p.legs[i].from.name} ponttól. ${stop.action}`));
+    li.append(body); list.append(li);
+  });
+  const last = make('li'), body = make('div');
+  body.append(make('strong', `Visszaérkezés · ${p.route[0].name}`), make('p', `Kb. ${p.legs.at(-1).minutes} perc visszaút. A teljes terv ezen felül ${p.buffer} perc tartalékot is tartalmaz.`));
+  last.append(body); list.append(last);
+  $('#time-equation').textContent = `${p.travel} + ${p.activity} + ${p.buffer} = ${p.total} perc`;
+  const breakdown = $('#time-breakdown'); breakdown.replaceChildren();
+  const row = (text, minutes) => { const r = make('div', null, 'breakdown-row'); r.append(make('span', text), make('span', `${minutes} perc`)); breakdown.append(r); };
+  p.legs.forEach((leg, i) => { row(`${leg.from.name} → ${leg.to.name}`, leg.minutes); if (i < p.stops.length) row(`Program: ${p.stops[i].name}`, p.stops[i].duration); });
+  row('Tartalék (legalább 10 perc, egyébként 20%)', p.buffer); row('Teljes becsült idő', p.total);
+  const maps = api.directionsUrl(p.route, p.input.transport);
+  $('#maps-link').href = maps || api.directionsUrl([p.route[0], p.route[1]], p.input.transport);
+  $('#maps-link').textContent = maps ? 'Útvonal a Google Mapsben ↗' : 'Első szakasz a Google Mapsben ↗';
+  $('#maps-note').textContent = maps ? 'Külső térképen nyílik meg. Csak a nyilvános mintapontok kerülnek a linkbe. A köztes megállók kezelése eszközfüggő; az egyes szakaszok lent külön is megnyithatók.' : 'A közösségi út külön szakaszokban nyílik meg. Az összes szakasz linkjét lent, az útvonalvázlatban találod. Nincs élő menetrendi adat.';
+  $('#ev-note').hidden = p.input.transport !== 'ev';
+  $('#partner-description').textContent = p.input.transport === 'ev'
+    ? `Egy későbbi változat a(z) ${p.stops[0].name} közelében megfelelő töltőt és a töltés idejére programot kereshetne.`
+    : `Egy későbbi változat a(z) ${p.stops[0].name} közelében ellenőrzött pihenő- vagy étkezési lehetőséget ajánlhatna, ha az belefér az utadba.`;
+  renderExtra(); renderAlternatives(); renderMap(p); renderSources(p);
 }
-
-function syncButtons() {
-  controls.durationButtons.forEach((button) => {
-    const active = Number(button.dataset.duration) === state.quick.duration;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
-  });
-
-  controls.moodButtons.forEach((button) => {
-    const active = button.dataset.mood === state.quick.mood;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
-  });
-
-  controls.transportButtons.forEach((button) => {
-    const active = button.dataset.transport === state.quick.transport;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
+const extraTasks = {
+  notice: 'A helyszínen keress egy részletet, amely mellett máskor elmennél. Adj neki egy saját címet.',
+  quiet: 'A helyszínen tedd el a telefonod egy percre, és figyelj meg három különböző hangot.',
+  social: 'Ha társasággal érkezel, válasszon valaki egy részletet, te pedig találj ki hozzá egy mondatot. Egyedül járva adj neki címet egy barátodnak szánt képeslaphoz.',
+};
+function renderExtra() {
+  const p = state.adventures[state.selected];
+  if (!p) return;
+  $('.extra-twist').dataset.accepted = String(Boolean(p.extra));
+  $('#extra-kind').value = p.extraKind || 'notice';
+  $('#extra-description').textContent = extraTasks[p.extraKind || 'notice'];
+  $('#extra-toggle').textContent = p.extra ? 'Hozzáadva ✓ · Mégsem kérem' : 'Benne vagyok';
+  $('#extra-toggle').setAttribute('aria-pressed', String(Boolean(p.extra)));
+}
+$('#extra-kind').addEventListener('change', event => {
+  const p = state.adventures[state.selected]; if (!p) return;
+  p.extraKind = event.target.value;
+  if (p.extra) p.extra = extraTasks[p.extraKind];
+  renderExtra(); $('#copy-plan').textContent = 'Terv másolása'; $('#copy-fallback').hidden = true;
+});
+$('#extra-toggle').addEventListener('click', () => {
+  const p = state.adventures[state.selected]; if (!p) return;
+  p.extra = p.extra ? null : extraTasks[p.extraKind || 'notice'];
+  renderExtra(); $('#copy-plan').textContent = 'Terv másolása'; $('#copy-fallback').hidden = true;
+  announce(p.extra ? 'Az extra feladat bekerült a tervbe, a helyszíni időn belül.' : 'Az extra feladatot kivettük a tervből.');
+});
+function renderAlternatives() {
+  const container = $('#alternatives'); container.replaceChildren();
+  $('#alternative-count').textContent = `${state.adventures.length} beleférő ötlet`;
+  state.adventures.forEach((p, index) => {
+    const b = make('button', null, 'alternative'); b.type = 'button'; b.setAttribute('aria-pressed', String(state.selected === index));
+    b.append(make('span', p.stops.length === 2 ? 'Két megállós felfedezés' : p.stops[0].category, 'alt-tag'),
+      make('strong', p.stops.map(s => s.name).join(' + ')), make('span', `~${p.total} perc · ${p.stops.length} megálló`, 'alt-meta'));
+    const choice = make('span', state.selected === index ? 'Kiválasztva' : 'Ezt választom', 'alt-choice'); choice.append(make('span', state.selected === index ? '✓' : '↗')); b.append(choice);
+    b.addEventListener('click', () => { state.selected = index; render(); $('#mission-title').focus({ preventScroll: true }); $('#mission-title').scrollIntoView({ block: 'center', behavior: 'instant' }); announce(`Kiválasztva: ${p.title} Becsült teljes idő: ${p.total} perc.`); });
+    container.append(b);
   });
 }
-
-controls.durationButtons.forEach((button) => {
-  button.addEventListener("click", () =>
-    setQuickValue("duration", button.dataset.duration),
-  );
-});
-
-controls.moodButtons.forEach((button) => {
-  button.addEventListener("click", () => setQuickValue("mood", button.dataset.mood));
-});
-
-controls.transportButtons.forEach((button) => {
-  button.addEventListener("click", () =>
-    setQuickValue("transport", button.dataset.transport),
-  );
-});
-
-controls.generate.addEventListener("click", generateAdventures);
-controls.regenerate.addEventListener("click", generateAdventures);
-controls.copy.addEventListener("click", copyPlan);
-controls.print.addEventListener("click", () => window.print());
-views.nudgeAction.addEventListener("click", () => {
-  const selected = state.adventures[state.selected];
-  selected.nudge.accepted = !selected.nudge.accepted;
-  renderCards();
-  renderSelected();
-});
-views.partnerAction.addEventListener("click", () => {
-  const selected = state.adventures[state.selected];
-  selected.partnerTip.opened = true;
-  renderPartnerTip(selected);
-});
-document.querySelectorAll("select, input").forEach((item) => {
-  item.addEventListener("change", generateAdventures);
-});
-
-syncButtons();
-generateAdventures();
-
+function renderMap(p) {
+  const svg = $('#route-map'); svg.replaceChildren();
+  const ns = 'http://www.w3.org/2000/svg';
+  function shape(tag, attrs, text) { const n = document.createElementNS(ns, tag); Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, String(v))); if (text) n.textContent = text; svg.append(n); return n; }
+  shape('title', {}, 'Földrajzi vázlat: ' + p.route.map(point => point.name).join(' → '));
+  const unique = p.route.slice(0, -1), factor = Math.cos(p.route[0].lat * Math.PI / 180);
+  const coords = unique.map(pt => [pt.lng * factor, -pt.lat]);
+  const minX = Math.min(...coords.map(c => c[0])), maxX = Math.max(...coords.map(c => c[0]));
+  const minY = Math.min(...coords.map(c => c[1])), maxY = Math.max(...coords.map(c => c[1]));
+  const scale = Math.min(500 / Math.max(maxX - minX, .00001), 155 / Math.max(maxY - minY, .00001));
+  const points = coords.map(c => [320 + (c[0] - (minX + maxX) / 2) * scale, 136 + (c[1] - (minY + maxY) / 2) * scale]);
+  for (let x = 40; x < 640; x += 40) shape('line', { x1: x, y1: 0, x2: x, y2: 260, stroke: '#dce2d4', 'stroke-width': 1 });
+  for (let y = 20; y < 260; y += 40) shape('line', { x1: 0, y1: y, x2: 640, y2: y, stroke: '#dce2d4', 'stroke-width': 1 });
+  shape('text', { x: 600, y: 30, fill: '#304f42', 'font-size': 17, 'text-anchor': 'middle' }, 'É ↑');
+  shape('polyline', { points: [...points, points[0]].map(v => v.join(',')).join(' '), fill: 'none', stroke: '#9d482b', 'stroke-width': 3, 'stroke-dasharray': '8 7', 'stroke-linejoin': 'round' });
+  points.forEach(([x, y], i) => { shape('circle', { cx: x, cy: y, r: 18, fill: i ? '#203f37' : '#fffefb', stroke: '#203f37', 'stroke-width': 2 }); shape('text', { x, y: y + 5, fill: i ? '#fffefb' : '#203f37', 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 700 }, i ? String(i) : 'S'); });
+  $('#route-legend').replaceChildren(...p.route.map((pt, i) => make('li', `${i === 0 ? 'Indulás' : i === p.route.length - 1 ? 'Visszaérkezés' : 'Megálló ' + i}: ${pt.name}`)));
+  $('#leg-links').replaceChildren(...p.legs.map((leg, i) => externalLink(`${i + 1}. szakasz · ${i === p.legs.length - 1 ? 'Visszaút' : leg.to.name} ↗`, api.directionsUrl([leg.from, leg.to], p.input.transport))));
+}
+function renderSources(p) {
+  const container = $('#source-links'); container.replaceChildren();
+  const origin = make('div', null, 'source-entry'); origin.append(make('strong', `Indulópont: ${p.route[0].name}`), externalLink('Koordinátaforrás ↗', p.route[0].source)); container.append(origin);
+  p.stops.forEach(stop => {
+    const entry = make('div', null, 'source-entry');
+    entry.append(make('strong', stop.name), make('p', stop.coordinateNote), externalLink('Helyszín forrása ↗', stop.source), externalLink('Koordinátaforrás ↗', stop.coordinateSource));
+    container.append(entry);
+  });
+}
+async function copyPlan() {
+  const current = state.adventures[state.selected]; if (!current) return;
+  const text = api.planText(current);
+  try { await navigator.clipboard.writeText(text); $('#copy-plan').textContent = 'Másolva ✓'; announce('A küldetés és az útvonalszakaszok a vágólapra kerültek.'); }
+  catch { $('#copy-fallback').hidden = false; $('#copy-text').value = text; $('#copy-text').focus(); $('#copy-text').select(); announce('A vágólap nem érhető el. A tervet kijelöltük kézi másoláshoz.'); }
+}
+form.addEventListener('submit', event => { event.preventDefault(); if (api) generate({ focus: true, reroll: true }); });
+form.addEventListener('change', () => { if (api) generate(); });
+$('#reroll').addEventListener('click', () => generate({ focus: true, reroll: true }));
+$('#copy-plan').addEventListener('click', copyPlan);
+$('#print-plan').addEventListener('click', () => window.print());
+try {
+  const [engine, data] = await Promise.all([import('./engine.js'), import('../data/places.js')]);
+  api = engine; places = data.places; starts = data.startPoints;
+  $('#generate').disabled = false;
+  generate();
+} catch (error) { console.error('A helyi adatfájl nem tölthető be.', error); showEmpty('load-error'); }
