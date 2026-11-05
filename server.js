@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 4285);
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
-const publicPaths = new Set(['/index.html', '/src/app.js', '/src/engine.js', '/src/styles.css', '/data/places.js', '/assets/compass.svg', '/assets/adventure.svg', '/assets/countryside.svg']);
+const publicPaths = new Set(['/index.html', '/src/app.js', '/src/engine.js', '/src/partners.js', '/data/offers.js', '/src/styles.css', '/data/places.js', '/assets/compass.svg', '/assets/adventure.svg', '/assets/countryside.svg']);
 for (const file of ['/classic/index.html', '/classic/src/app.js', '/classic/src/styles.css', '/classic/data/places.js']) publicPaths.add(file);
 const server = http.createServer((req, res) => {
   const send = (status, body, type = 'text/plain; charset=utf-8') => {

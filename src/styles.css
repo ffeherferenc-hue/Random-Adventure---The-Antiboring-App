@@ -25,3 +25,12 @@
 .visual-caption span{background:rgba(22,50,37,.88);padding:5px 8px;border-radius:4px;text-shadow:none}
 @media(max-width:420px){.theme-control select{width:108px;font-size:11px}.brand{font-size:17px;letter-spacing:-.9px}.brand small{letter-spacing:1.8px}}
 .extra-twist{margin:22px 0;padding:20px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}.extra-twist h3{margin:0 0 14px;font-size:18px}.extra-twist label{display:block;font-size:12px;margin-bottom:8px}.extra-twist p{line-height:1.6}.extra-twist .eyebrow{font-size:10px}.extra-twist select{width:100%}.advanced>label{margin-top:16px}.partner-preview{margin-top:20px}.transport{grid-template-columns:repeat(3,minmax(0,1fr))}@media print{.extra-twist select,.extra-twist label,.extra-twist button{display:none}.extra-twist[data-accepted="false"]{display:none}.extra-twist{break-inside:avoid}}
+
+/* Partner demonstration, using the existing responsive layout and theme. */
+.partner-preview { padding: 24px; margin-block: 20px; }
+.offer-card { border: 1px solid currentColor; border-radius: 12px; padding: 16px; margin-block: 14px; }
+.partner-preview input, .partner-preview select { display: block; width: 100%; max-width: 30rem; padding: 10px; margin-block: 8px 14px; font: inherit; }
+.partner-preview button { margin-block: 8px; white-space: normal; }
+.partner-preview h3 { margin-block: 16px 8px; }
+#points-badge { white-space: nowrap; }
+@media (max-width: 600px) { .header-tools { flex-wrap: wrap; } .partner-preview { padding: 16px; } }
