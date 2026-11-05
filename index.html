@@ -8,7 +8,7 @@
   <meta name="referrer" content="no-referrer">
   <title>Random Adventure — Az app, ami kimozdít.</title>
   <link rel="icon" href="./assets/compass.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./src/styles.css?v=20260914">
+  <link rel="stylesheet" href="./src/styles.css?v=20261105-partners">
 </head>
 <body>
 <a class="skip" href="#planner">Ugrás a kalandtervezőhöz</a>
@@ -16,7 +16,7 @@
   <header class="topbar">
     <a class="brand" href="#" aria-label="Random Adventure, kezdőlap"><img src="./assets/compass.svg" width="38" height="38" alt=""><span>random<span class="brand-light">adventure</span><small>THE ANTIBORING APP</small></span></a>
     <nav aria-label="Fő navigáció"><a class="nav-active" href="#planner">Találj egy kalandot</a><a href="#about">Hogyan működik?</a></nav>
-    <div class="header-tools"><label class="theme-control"><span class="sr-only">Megjelenés</span><select id="theme-select" aria-label="Megjelenés" aria-keyshortcuts="Alt+Shift+V" title="Világos/sötét váltás: Alt + Shift + V (vödör)"><option value="system">Rendszer</option><option value="light">Világos</option><option value="dark">Sötét</option></select></label><span class="local-tag"><i></i> Public MVP</span></div>
+    <div class="header-tools"><label class="theme-control"><span class="sr-only">Megjelenés</span><select id="theme-select" aria-label="Megjelenés" aria-keyshortcuts="Alt+Shift+V" title="Világos/sötét váltás: Alt + Shift + V (vödör)"><option value="system">Rendszer</option><option value="light">Világos</option><option value="dark">Sötét</option></select></label><span id="points-badge" class="local-tag" aria-live="polite">0 PTS · demó</span><span class="local-tag"><i></i> Public MVP</span></div>
   </header>
   <main>
     <section class="intro" aria-labelledby="page-title">
@@ -76,7 +76,27 @@
             </div>
           </article>
           <section class="alternatives-section" aria-labelledby="alternatives-title"><div class="subheading"><h2 id="alternatives-title">Másfelé indulnál?</h2><span id="alternative-count" class="small muted"></span></div><div id="alternatives" class="alternatives"></div></section>
-          <details class="sources panel partner-preview"><summary>Ha jól jönne még valami az úton <span aria-hidden="true">+</span></summary><p id="partner-description"></p><p>Ez a partnerajánló működésének bemutatása. Jelenleg nincs élő partnerlista, foglalás vagy vásárlás.</p><p class="field-note">Egy későbbi, külön megjelölt partnerlink jutalékot hozhat az alkalmazásnak. A partnerbemutató most nem befolyásolja a kalandok sorrendjét.</p><a href="./classic/">További mintakalandok és partnerötletek · English demo ↗</a></details>
+          <section class="panel partner-preview" aria-labelledby="partner-title">
+            <h2 id="partner-title">Ajánlatok az útvonaladhoz</h2>
+            <p id="partner-description">Kitalált partnerekkel és ajánlatokkal működő bemutató.</p>
+            <p class="field-note">Nincs valódi vásárlás, fizetés vagy banki adatkapcsolat. A pontoknak nincs meghatározott pénzértéke. Minden demóadat elvész az oldal újratöltésekor.</p>
+            <label for="offer-budget">Ajánlatra szánt keret</label>
+            <select id="offer-budget"><option value="any">Nincs külön korlát</option><option value="0">0 Ft</option><option value="1500">1 500 Ft</option><option value="2500">2 500 Ft</option><option value="5000">5 000 Ft</option></select>
+            <div id="partner-offers"></div>
+            <button id="undo-detour" class="secondary" type="button" hidden>Vissza az eredeti útvonalhoz</button>
+            <div id="purchase-demo" hidden>
+              <h3>Mintavásárlás igazolása</h3>
+              <p id="purchase-description"></p>
+              <label for="purchase-id">Vásárlásazonosító (azonos érték nem írható jóvá kétszer)</label>
+              <input id="purchase-id" type="text" maxlength="80">
+              <label for="purchase-amount">Ténylegesen fizetett összeg a szimulációban (Ft)</label>
+              <input id="purchase-amount" type="number" min="1" step="1">
+              <button id="verify-purchase" type="button" class="primary">Szimulált vásárlás igazolása</button>
+            </div>
+            <p id="purchase-status" role="status" aria-live="polite"></p>
+            <h3>Pont- és jutaléknapló · demó</h3><div id="purchase-ledger"></div>
+            <details><summary>Partneri kapacitásjelzés kipróbálása</summary><p>Kézzel módosítható mintakapacitás; nincs valódi partnerkapcsolat.</p><div id="partner-controls"></div></details>
+          </section>
           <details class="route-details panel"><summary><span>Az útvonal, egy pillantásra</span><span class="small">Vázlat · nem navigáció +</span></summary><div class="route-content"><svg id="route-map" viewBox="0 0 640 260" role="img" aria-label="Célpontok földrajzi vázlata"></svg><div><p class="small muted">Valós koordináták, egyenes összekötések. Az utcák vonalát a külső térkép mutatja.</p><ol id="route-legend"></ol></div></div><div id="leg-links" class="leg-links"></div><p class="small muted attribution">Pontadatok: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap közreműködők</a>, Wikidata és helyszíni források.</p></details>
           <details class="sources panel"><summary>Jó tudni indulás előtt <span aria-hidden="true">+</span></summary><p>Csak szabadtéri mini-küldetéseket ajánlunk. A programidő saját becslés. Nyitvatartás, időjárás, akadálymentesség, lezárások és szabad parkolóhelyek nincsenek élőben ellenőrizve.</p><p>Az autós és közösségi utak szakaszonként 15 perc megközelítési / várakozási ráhagyást tartalmaznak. Ettől még a járat, parkoló és behajtás nem ellenőrzött. A végén gyalogos szakasz is lehet; biciklivel a helyi jelzéseket kövesd.</p><div id="source-links"></div><p class="field-note">Források ellenőrzése: 2026. szeptember 13. A koordináták helyszínpontok, nem hitelesített bejáratok.</p></details>
         </div>
@@ -87,6 +107,6 @@
   </main>
   <footer><span>randomadventure <span class="muted">/ The Antiboring App</span></span><a href="./classic/" lang="en">English · original demo ↗</a><a href="#page-title">Vissza az elejére ↑</a></footer>
 </div>
-<script type="module" src="./src/app.js?v=20260914"></script>
+<script type="module" src="./src/app.js?v=20261105-partners"></script>
 </body>
 </html>

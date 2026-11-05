@@ -1,3 +1,7 @@
+import { TransactionLedger, discountedPrice } from './partners.js';
+import { sampleOffers } from '../data/offers.js';
+const ledger = new TransactionLedger(sampleOffers());
+let purchaseSequence = 0;
 const $ = selector => document.querySelector(selector);
 const form = $('#adventure-form');
 const state = { adventures: [], selected: 0, result: null };
@@ -127,7 +131,7 @@ function render() {
   $('#partner-description').textContent = p.input.transport === 'ev'
     ? `Egy későbbi változat a(z) ${p.stops[0].name} közelében megfelelő töltőt és a töltés idejére programot kereshetne.`
     : `Egy későbbi változat a(z) ${p.stops[0].name} közelében ellenőrzött pihenő- vagy étkezési lehetőséget ajánlhatna, ha az belefér az utadba.`;
-  renderExtra(); renderAlternatives(); renderMap(p); renderSources(p);
+  renderExtra(); renderAlternatives(); renderMap(p); renderSources(p); renderPartners();
 }
 const extraTasks = {
   notice: 'A helyszínen keress egy részletet, amely mellett máskor elmennél. Adj neki egy saját címet.',
@@ -207,8 +211,88 @@ $('#reroll').addEventListener('click', () => generate({ focus: true, reroll: tru
 $('#copy-plan').addEventListener('click', copyPlan);
 $('#print-plan').addEventListener('click', () => window.print());
 try {
-  const [engine, data] = await Promise.all([import('./engine.js?v=20260914'), import('../data/places.js?v=20260914')]);
+  const [engine, data] = await Promise.all([import('./engine.js?v=20261105-partners'), import('../data/places.js?v=20261105-partners')]);
   api = engine; places = data.places; starts = data.startPoints;
   $('#generate').disabled = false;
   generate();
 } catch (error) { console.error('A helyi adatfájl nem tölthető be.', error); showEmpty('load-error'); }
+
+function renderPartners() {
+  const current = state.adventures[state.selected];
+  if (!current) return;
+  const root = $('#partner-offers'); root.replaceChildren();
+  $('#undo-detour').hidden = !current.partnerBase;
+  $('#purchase-demo').hidden = !current.acceptedOfferId;
+  if (!current.acceptedOfferId) {
+    const budget = $('#offer-budget').value === 'any' ? Infinity : Number($('#offer-budget').value);
+    const offers = ledger.getOffers();
+    const alternatives = api.planPartnerDetours(current, places, offers, Date.now(), budget);
+    if (!alternatives.length) root.append(make('p', 'Nincs az időkeretbe és az ajánlati feltételekbe illő kitérő. Próbálj több időt vagy más ajánlati keretet.'));
+    for (const alt of alternatives) {
+      const card = make('article', null, 'offer-card');
+      card.append(make('h3', alt.offer.title), make('p', alt.offer.reason + ' · kitalált mintapartner'),
+        make('p', `+${alt.extraMinutes} perc a teljes tervhez · ${alt.priceHuf} Ft · megtakarítás: ${alt.savingsHuf} Ft · kapacitás: ${alt.offer.capacity}`),
+        make('p', `Becsült érkezés: ${alt.arrivalMinutes} perc múlva. Ajánlat vége: ${new Date(alt.offer.endsAt).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}.`));
+      const button = make('button', 'Kitérő elfogadása', 'secondary'); button.type = 'button';
+      button.onclick = () => {
+        // Revalidate capacity and expiry at acceptance, not just at rendering.
+        const fresh = api.planPartnerDetours(current, places, ledger.getOffers(), Date.now(), budget).find(a => a.offer.id === alt.offer.id);
+        if (!fresh) { $('#purchase-status').textContent = 'Az ajánlat már nem elérhető.'; renderPartners(); return; }
+        state.adventures[state.selected] = { ...fresh.plan, extra: current.extra, extraKind: current.extraKind,
+          partnerBase: current, acceptedOfferId: alt.offer.id };
+        $('#purchase-id').value = `DEMO-${++purchaseSequence}`;
+        $('#purchase-amount').value = fresh.priceHuf;
+        $('#purchase-status').textContent = 'Útvonal módosítva. Pontjóváírás még nem történt.';
+        render();
+      };
+      card.append(button); root.append(card);
+    }
+  } else {
+    const offer = ledger.getOffers().find(o => o.id === current.acceptedOfferId);
+    root.append(make('p', `Elfogadva: ${offer.title}. A térkép, időbontás és másolható terv a módosított útvonalat mutatja.`));
+    $('#purchase-description').textContent = `${offer.title} · ajánlati ár: ${discountedPrice(offer)} Ft. A gomb teszteseményt hoz létre.`;
+  }
+  $('#points-badge').textContent = `${ledger.balance('demo-user').toLocaleString('hu-HU')} PTS · demó`;
+  const log = $('#purchase-ledger'); log.replaceChildren();
+  const records = ledger.records();
+  if (!records.length) log.append(make('p', 'Még nincs mintavásárlás.'));
+  for (const r of records) {
+    const row = make('div', null, 'offer-card');
+    row.append(make('p', `${r.purchaseId} · ${r.amountHuf} Ft · ${r.earnedPoints} PTS · RA-jutalék: ${r.commissionHuf} Ft · ${r.status === 'revoked' ? 'visszavonva' : 'szimulált jóváírás'}`));
+    if (r.status === 'verified') {
+      const undo = make('button', 'Mintavásárlás visszavonása', 'secondary'); undo.type = 'button';
+      undo.onclick = () => { ledger.revoke(r.purchaseId); $('#purchase-status').textContent = 'Pont és jutalék visszavonva; kapacitás visszaállítva.'; renderPartners(); };
+      row.append(undo);
+    }
+    log.append(row);
+  }
+  const controls = $('#partner-controls'); controls.replaceChildren();
+  for (const o of ledger.getOffers()) {
+    const label = make('label', o.title + ' · szabad darabszám');
+    const control = make('input'); control.type = 'number'; control.min = '0'; control.step = '1'; control.value = o.capacity;
+    const apply = make('button', 'Kapacitás frissítése', 'secondary'); apply.type = 'button';
+    apply.onclick = () => {
+      const ok = ledger.updateCapacity(o.id, control.value.trim() === '' ? NaN : Number(control.value));
+      $('#purchase-status').textContent = ok ? 'Mintakapacitás frissítve.' : 'Nemnegatív egész darabszám szükséges.';
+      renderPartners();
+    };
+    label.append(control); controls.append(label, apply);
+  }
+}
+$('#offer-budget').addEventListener('change', renderPartners);
+$('#undo-detour').addEventListener('click', () => {
+  const current = state.adventures[state.selected]; if (!current?.partnerBase) return;
+  state.adventures[state.selected] = { ...current.partnerBase, extra: current.extra, extraKind: current.extraKind };
+  $('#purchase-status').textContent = 'Az eredeti útvonal visszaállítva. A vásárlási napló külön kezelhető.'; render();
+});
+$('#verify-purchase').addEventListener('click', () => {
+  const current = state.adventures[state.selected];
+  const offer = ledger.getOffers().find(o => o.id === current?.acceptedOfferId); if (!offer) return;
+  const result = ledger.verify({ purchaseId: $('#purchase-id').value.trim(), userId: 'demo-user', placeId: offer.placeId,
+    offerId: offer.id, amountHuf: $('#purchase-amount').value.trim() === '' ? NaN : Number($('#purchase-amount').value) });
+  const errors = { 'duplicate-transaction': 'Ez a vásárlásazonosító már szerepel a naplóban.', 'sold-out': 'A mintakapacitás elfogyott.',
+    'offer-unavailable': 'Az ajánlat még nem vagy már nem érvényes.', 'invalid-amount': 'Pozitív egész forintösszeg szükséges.',
+    'invalid-payload': 'Add meg a vásárlásazonosítót.' };
+  $('#purchase-status').textContent = result.success ? `Szimulált jóváírás: +${result.record.earnedPoints} PTS; RA-jutalék: ${result.record.commissionHuf} Ft.` : errors[result.status] || 'A mintavásárlás nem igazolható.';
+  renderPartners();
+});

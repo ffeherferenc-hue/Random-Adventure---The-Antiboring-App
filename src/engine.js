@@ -1,3 +1,4 @@
+import { validOffer, discountedPrice } from './partners.js';
 // Pure planning functions. No network, location access or browser dependencies.
 export const transportNames = { walk: 'Séta', bike: 'Bicikli', transit: 'Közösségi', car: 'Autó', ev: 'Elektromos autó' };
 export const moodNames = { calm: 'Kikapcsolnék', curious: 'Felfedeznék', spark: 'Felpezsdülnék' };
@@ -34,7 +35,7 @@ function validPlace(p) {
 }
 export function buildAdventure(stops, input, origin) {
   if (!validCoordinates(origin) || !profiles[input?.transport] || !Number.isFinite(input?.duration)
-      || input.duration <= 0 || !Array.isArray(stops) || stops.length === 0 || stops.length > 2
+      || input.duration <= 0 || !Array.isArray(stops) || stops.length === 0 || stops.length > 3
       || new Set(stops.map(p => p?.id)).size !== stops.length || !stops.every(validPlace)) return null;
   if (stops.some(p => !p.modes.includes(input.transport) || p.region !== origin.region)) return null;
   // Every outward, inter-stop and return leg belongs to the same itinerary.
@@ -109,4 +110,37 @@ export function planText(plan) {
   plan.legs.forEach(leg => lines.push(`${leg.from.name} → ${leg.to.name}: kb. ${leg.minutes} perc`, directionsUrl([leg.from, leg.to], plan.input.transport)));
   lines.push('', 'Tájékoztató becslés, nem élő útvonalterv. Indulás előtt ellenőrizd az útvonalat, időjárást és hozzáférést. A térképlinkek nyilvános mintapontokat tartalmaznak.');
   return lines.join('\n');
+}
+
+// Preserve the original stop order; try each insertion slot and choose the least extra time.
+// Ranking uses travel time only. Commission never buys relevance.
+export function planPartnerDetours(basePlan, places, offers, now = Date.now(), maxBudgetHuf = Infinity) {
+  if (!basePlan || !Array.isArray(basePlan.stops) || !Array.isArray(places) || !Array.isArray(offers)
+      || !Number.isFinite(now) || !(maxBudgetHuf === Infinity || Number.isFinite(maxBudgetHuf) && maxBudgetHuf >= 0)) return [];
+  const results = [];
+  for (const offer of offers) {
+    if (!validOffer(offer) || offer.capacity <= 0 || discountedPrice(offer) > maxBudgetHuf) continue;
+    const place = places.find(p => p.id === offer.placeId);
+    if (!validPlace(place) || place.region !== basePlan.route[0].region) continue;
+    const existing = basePlan.stops.findIndex(p => p.id === place.id);
+    const options = [];
+    const slots = existing >= 0 ? [existing] : Array.from({ length: basePlan.stops.length + 1 }, (_, i) => i);
+    for (const slot of slots) {
+      const stops = [...basePlan.stops];
+      if (existing >= 0) stops[slot] = { ...place, duration: place.duration + offer.visitMinutes };
+      else stops.splice(slot, 0, { ...place, duration: offer.visitMinutes });
+      const plan = buildAdventure(stops, basePlan.input, basePlan.route[0]);
+      if (!plan?.fits) continue;
+      let arrival = 0;
+      for (let i = 0; i <= slot; i++) { arrival += plan.legs[i].minutes; if (i < slot) arrival += plan.stops[i].duration; }
+      // At an existing stop, the offer is used after the original activity.
+      if (existing >= 0) arrival += place.duration;
+      if (now + arrival * 60000 < offer.startsAt || now + (arrival + offer.visitMinutes) * 60000 > offer.endsAt) continue;
+      options.push({ offer: structuredClone(offer), plan, arrivalMinutes: arrival,
+        extraMinutes: plan.total - basePlan.total, savingsHuf: offer.priceHuf - discountedPrice(offer), priceHuf: discountedPrice(offer) });
+    }
+    options.sort((a, b) => a.extraMinutes - b.extraMinutes);
+    if (options.length) results.push(options[0]);
+  }
+  return results.sort((a, b) => a.extraMinutes - b.extraMinutes || a.offer.id.localeCompare(b.offer.id));
 }

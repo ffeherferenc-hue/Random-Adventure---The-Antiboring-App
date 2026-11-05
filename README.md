@@ -10,14 +10,14 @@ Choose time, mood and transport. Get a small outdoor mission, choose an alternat
 
 ## The updated planner
 
-- A responsive green interface, Hungarian copy, system/light/dark appearance and **Alt + Shift + V** to switch light/dark. Only the appearance preference is stored on the device.
+- A responsive green interface, Hungarian copy, system/light/dark appearance and **Alt + Shift + V** to switch light/dark. Only the appearance preference persists on the device; partner demonstration state is held in page memory.
 - Five sourced public outdoor destinations in Győr and Budapest. Coordinate references are area points, not surveyed entrances. Sources and access limitations are shown in the app.
 - Single-destination trips, two-stop circuits and a surprise mode. Every outward, inter-stop and return leg, every activity and a separate buffer count toward the total. Only plans within the estimated time budget are offered.
 - Walking, cycling, public transport, driving and EV. EV uses a driving estimate; charger suitability, availability, range and charging time are not provided.
 - Optional nature, culture and detail-discovery preferences influence ranking. Surprise mode ignores those ranking preferences.
 - Optional observation, quiet or companion tasks fit within the already allocated on-site time. Accepted tasks appear in the copied itinerary and printed mission.
 - Google Maps URLs open actual public coordinates without an API key. The complete circuit and individual legs are available. Public transport opens one leg at a time. Waypoint handling varies by Google product.
-- A clearly labelled partner concept remains available after the mission. It provides no live inventory, booking or transaction.
+- A clearly labelled fictional partner demonstration provides optional route changes, sample capacity and a separate simulated purchase/points/commission flow; see the expansion section below. It provides no live inventory, booking or transaction.
 
 Balatonfüred and Pannonhalma currently show an explicit missing-data state. The five outdoor activities do not require a programme ticket; transport and parking costs are separate. There is no fabricated venue fallback.
 
@@ -54,3 +54,27 @@ The old English version already reported full trip time and overtime. The new pl
 ## Use and licensing
 
 No open-source licence is currently provided for this repository. Public visibility of the source does not by itself grant permission to reuse, modify or redistribute it.
+
+## Partner demonstration expansion — 5 November 2026
+
+The existing Hungarian planner and `classic/` experience are preserved. The Hungarian planner now demonstrates the commercial flow with **fictional offers** at the existing public sample coordinates:
+
+1. Generate/select the original adventure.
+2. Compare eligible partner alternatives showing total extra time, discounted HUF price, savings, capacity and estimated arrival.
+3. Accept an alternative: the actual itinerary, map links, time breakdown and copied plan change. No points are earned by accepting a detour.
+4. Trigger a separate labelled simulated purchase, using a purchase ID and integer HUF amount. Points and commission use the stored offer rates, capacity decreases, and repeated IDs are rejected.
+5. Reverse a simulated purchase: its points and commission are reversed and its capacity unit is restored. The purchase ID remains used.
+
+A manual sample-capacity control demonstrates partner signalling. A separate offer budget includes an explicit zero-HUF choice. Original stops remain in order; each possible insertion slot is checked and the least extra-time eligible option is shown. Existing stops are extended with offer activity time rather than duplicated. Both arrival and offer activity completion must fall inside the sample offer window. Capacity, budget, region, transport and total itinerary duration constrain suggestions. Commission does not influence their ordering.
+
+### Data and integration limits
+
+`data/offers.js` creates fictional four-hour offer windows relative to page load. No actual café, merchant, discount or agreement is represented. Purchase confirmation is a user-triggered test event, not evidence of a physical visit or bank transaction. There is no card issuance, credit, payment, reservation, bank-feed or merchant/POS integration.
+
+`src/partners.js` stores offers, purchase records and points in page memory, with defensive copies on input/output. Reloading resets all demo state. Points have no specified cash value. Integer HUF commission rounding and restoring a capacity unit on cancellation are demonstration policies, not agreed commercial terms. A production integration needs authenticated merchant verification, durable atomic storage, authoritative inventory and wall-clock availability, currency rules and reconciliation.
+
+### Verification
+
+`npm test` runs the original 21 planning tests plus 8 partner tests (29 total). The original suite checks 438 offered itineraries across 288 input combinations. Additional tests cover third-stop insertion, preserving existing stops, total-time fit, offer completion window, zero budget, invalid capacities/rates/amounts, stored-rate calculation, defensive copies, duplicate IDs, sold-out capacity, reversal and reset. These tests do not establish exhaustive coverage or production readiness.
+
+UI verification: `npm install` installs the optional development dependency; `npm run test:ui` runs the DOM integration check for startup, detour acceptance, unchanged points before purchase, purchase/duplicate/reversal, original-route restore, zero budget, round trips, alternatives, theme, optional task, copy and missing-data state. This is a DOM simulation, not a real-browser rendering or mobile-layout test. The local Chromium launch was blocked by the execution environment; visual/mobile and real browser verification remain outstanding. Runtime serving and the engine tests have no external dependencies. Development UI tests require Node 24.15+.
